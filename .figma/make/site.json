@@ -1,0 +1,10 @@
+{
+  "description": "This health-tech app offers AI-powered nutrition tracking, personalized dietary insights, and an interactive dashboard for users to manage their health goals.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
