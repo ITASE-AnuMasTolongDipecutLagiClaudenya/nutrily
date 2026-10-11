@@ -2,6 +2,17 @@ import { supabase } from "./supabase"
 
 const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080"
 
+export async function verifyTurnstile(token) {
+  const response = await fetch(`${baseUrl}/api/auth/verify-turnstile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok)
+    throw new Error(result.error || `Verifikasi gagal (${response.status}).`)
+}
+
 export async function api(path, options = {}) {
   if (!supabase) throw new Error("Supabase belum dikonfigurasi.")
   const { data, error } = await supabase.auth.getSession()

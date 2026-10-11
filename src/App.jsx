@@ -25,9 +25,7 @@ import {
   History,
   Leaf,
   List,
-  LockKeyhole,
   LogOut,
-  Mail,
   Menu,
   MessageCircleMore,
   Mic,
@@ -41,7 +39,6 @@ import {
   Target,
   TrendingUp,
   Upload,
-  UserRound,
   Utensils,
   WandSparkles,
   X,
@@ -56,7 +53,7 @@ import gsap from "gsap"
 
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 
-import { api } from "./lib/api"
+import { api, verifyTurnstile } from "./lib/api"
 
 import { useAuth } from "./lib/AuthProvider"
 
@@ -71,6 +68,10 @@ import Preloader from "./components/Preloader"
 import FaqSection from "./components/FaqSection"
 
 import CtaSection from "./components/CtaSection"
+
+import AuthGridBackground from "./components/AuthGridBackground"
+
+import Turnstile from "./components/Turnstile"
 
 import GlowCard from "./components/GlowCard"
 
@@ -634,24 +635,15 @@ function Landing({ navigate }) {
   )
 }
 
-function Auth({ navigate, initialMode = "login" }) {
-  const [register, setRegister] = useState(initialMode === "register")
-
-  const [name, setName] = useState("")
-
-  const [email, setEmail] = useState("")
-
-  const [password, setPassword] = useState("")
-
+function Auth({ navigate }) {
   const [busy, setBusy] = useState(false)
 
   const [notice, setNotice] = useState("")
 
-  const user = useAuth().user
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileKey, setTurnstileKey] = useState(0)
 
-  useEffect(() => {
-    setRegister(initialMode === "register")
-  }, [initialMode])
+  const user = useAuth().user
 
   useEffect(() => {
     if (user) {
@@ -669,62 +661,23 @@ function Auth({ navigate, initialMode = "login" }) {
     }
   }, [navigate, user])
 
-  const submit = async (event) => {
-    event.preventDefault()
-
-    if (!supabase)
-      return setNotice("Supabase belum dikonfigurasi. Isi file .env.")
-
-    setBusy(true)
-
-    setNotice("")
-
-    try {
-      if (register) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-
-          password,
-
-          options: {
-            data: { full_name: name },
-
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        })
-
-        if (error) throw error
-
-        if (data.session) navigate("/onboarding", { replace: true })
-        else
-          setNotice(
-            "Akun dibuat. Periksa email untuk mengonfirmasi pendaftaran.",
-          )
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-
-          password,
-        })
-
-        if (error) throw error
-      }
-    } catch (error) {
-      setNotice(error.message || "Autentikasi gagal.")
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const signInWithGoogle = async () => {
     if (!supabase)
       return setNotice("Supabase belum dikonfigurasi. Isi file .env.")
 
+    if (!import.meta.env.VITE_TURNSTILE_SITE_KEY)
+      return setNotice("Turnstile belum dikonfigurasi.")
+
+    if (!turnstileToken)
+      return setNotice("Selesaikan verifikasi keamanan terlebih dahulu.")
+
     setBusy(true)
 
     setNotice("")
 
     try {
+      await verifyTurnstile(turnstileToken)
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
 
@@ -738,89 +691,64 @@ function Auth({ navigate, initialMode = "login" }) {
       if (error) throw error
     } catch (error) {
       setNotice(error.message || "Google OAuth gagal.")
-
+      setTurnstileToken("")
+      setTurnstileKey((key) => key + 1)
       setBusy(false)
     }
   }
 
   return (
-    <main className="grid min-h-screen bg-slate-50 lg:grid-cols-[1fr_1.03fr]">
-      <section className="relative hidden overflow-hidden bg-sky-500 p-12 text-white lg:flex lg:flex-col">
-        <div className="absolute -left-24 top-1/4 size-80 rounded-full border border-white/15" />
-        <div className="absolute -left-4 top-1/3 size-52 rounded-full border border-white/15" />
-        <div className="absolute -bottom-32 -right-24 size-96 rounded-full bg-cyan-400/30 blur-2xl" />
-        <button
-          className="relative z-10 flex w-fit items-center gap-2.5 text-xl font-bold"
-          onClick={() => navigate("landing")}
-        >
-          <span className="grid size-9 place-items-center rounded-xl bg-white text-sky-500">
-            <Leaf className="size-5" />
-          </span>
-          Nutrily
-        </button>
+    <main className="relative grid min-h-screen bg-sky-50 lg:grid-cols-[1fr_1.03fr]">
+      <section className="relative hidden overflow-hidden bg-sky-50 p-12 text-slate-900 lg:flex lg:flex-col">
+        <AuthGridBackground />
         <div className="relative z-10 my-auto max-w-lg">
-          <Pill icon={Sparkles}>Gizi yang memahami kebutuhanmu</Pill>
-          <h1 className="mt-7 text-5xl font-bold leading-tight tracking-[-0.04em]">
-            Pilihan kecil.
-            <br />
-            Perubahan luar biasa.
+          <h1 className="text-5xl font-bold leading-tight tracking-[-0.04em] text-white">
+            Beri tubuhmu gizi terbaik.
           </h1>
-          <p className="mt-6 max-w-md text-lg leading-8 text-sky-50/90">
-            Bergabunglah dengan ribuan orang yang membangun pola makan lebih
-            sehat—dimulai dari satu insight sederhana.
-          </p>
-          <div className="mt-10 flex -space-x-2">
-            {[
-              { name: "AJ", src: "/avatars/aj.jpeg" },
-
-              { name: "MK", src: "/avatars/mk.jpeg" },
-
-              { name: "SR", src: "/avatars/sr.png" },
-            ].map(({ name, src }) => (
-              <img
-                alt={`Foto profil ${name}`}
-                className="size-10 rounded-full border-2 border-sky-500 object-cover"
-                key={name}
-                src={src}
-              />
-            ))}
-            <div className="ml-4 text-sm leading-5 text-sky-50">
-              <strong className="block text-white">12.000+ orang</strong>
-              sudah merasa lebih baik
-            </div>
-          </div>
         </div>
-        <p className="relative z-10 text-xs text-sky-100">
-          Privasi adalah prioritas. Data kesehatanmu tetap milikmu.
-        </p>
       </section>
 
-      <section className="flex min-h-screen items-center justify-center bg-white px-5 py-10 sm:px-10">
-        <div className="w-full max-w-md">
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sky-50 px-5 py-5 sm:px-10 sm:py-6 lg:bg-white">
+        <AuthGridBackground className="lg:hidden" />
+        <div className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100 bg-white/90 p-5 backdrop-blur sm:p-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="flex items-center justify-between lg:hidden">
             <button onClick={() => navigate("landing")}>
-              <Brand />
+              <Brand compact />
             </button>
-            <Button onClick={() => navigate("landing")} variant="ghost">
-              <X className="size-5" />
-            </Button>
+            <button
+              aria-label="Kembali ke beranda"
+              className="grid size-10 place-items-center rounded-xl border border-sky-500 bg-sky-500 text-white shadow-md shadow-sky-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-600 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-300"
+              onClick={() => navigate("landing")}
+              type="button"
+            >
+              <ArrowLeft className="size-5" />
+            </button>
           </div>
-          <div className="mt-12 lg:mt-0">
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-sky-600">
-              {register
-                ? "Mulai jalani hidup lebih sehat"
-                : "Selamat Datang Kembali Bos!"}
+          <div className="mt-7 sm:mt-8 lg:mt-0">
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-sky-600 sm:text-3xl">
+              Selamat Datang!
             </h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              {register
-                ? "Rutinitas yang lebih sehat dimulai dari beberapa informasi sederhana."
-                : "Masuk untuk melanjutkan perjalanan gizimu."}
+            <p className="mt-2 text-sm leading-6 text-slate-500 sm:mt-3">
+              Masuk untuk melanjutkan perjalanan gizimu.
             </p>
           </div>
 
+          <Turnstile
+            key={turnstileKey}
+            onError={() => {
+              setTurnstileToken("")
+              setNotice("Turnstile gagal dimuat. Muat ulang halaman.")
+            }}
+            onExpired={() => setTurnstileToken("")}
+            onVerify={(token) => {
+              setNotice("")
+              setTurnstileToken(token)
+            }}
+          />
+
           <Button
-            className="mt-8 w-full border-slate-200 text-slate-700"
-            disabled={busy}
+            className="mt-4 w-full border-slate-200 text-slate-700 transition-all duration-300 hover:-translate-y-1 hover:border-sky-400 hover:bg-gradient-to-r hover:from-sky-500 hover:to-sky-400 hover:text-white hover:shadow-xl hover:shadow-sky-200 sm:mt-6"
+            disabled={busy || !turnstileToken}
             onClick={signInWithGoogle}
             variant="secondary"
           >
@@ -845,84 +773,34 @@ function Auth({ navigate, initialMode = "login" }) {
             Lanjutkan dengan Google
           </Button>
 
-          <div className="my-6 flex items-center gap-4">
-            <span className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-medium text-slate-400">
-              atau lanjutkan dengan email
-            </span>
-            <span className="h-px flex-1 bg-slate-200" />
+          <div className="mt-8 hidden gap-3 xl:grid">
+            {[
+              [ScanLine, "Pindai label makanan dalam sekejap"],
+              [Bot, "Tanya AI gizi yang personal"],
+              [TrendingUp, "Pantau progres harianmu"],
+            ].map(([Icon, text]) => (
+              <div
+                className="group flex cursor-default items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 transition-all duration-300 hover:-translate-y-1 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-white hover:shadow-lg hover:shadow-sky-100"
+                key={text}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-sky-600 shadow-sm transition-all duration-300 group-hover:bg-sky-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-sky-200">
+                  <Icon className="size-4.5" />
+                </span>
+                <p className="text-sm font-semibold text-slate-700 transition-colors duration-300 group-hover:text-sky-700">
+                  {text}
+                </p>
+              </div>
+            ))}
           </div>
-
-          <form className="space-y-5" onSubmit={submit}>
-            {register && (
-              <Input
-                icon={UserRound}
-                label="Nama lengkap"
-                onChange={setName}
-                placeholder="Budi Santoso"
-                value={name}
-              />
-            )}
-            <Input
-              icon={Mail}
-              label="Alamat email"
-              onChange={setEmail}
-              placeholder="nama@contoh.com"
-              type="email"
-              value={email}
-            />
+          <div className="group mt-4 hidden cursor-default gap-3 rounded-2xl bg-sky-500 p-4 text-white transition-all duration-300 hover:-translate-y-1 hover:bg-gradient-to-r hover:from-sky-500 hover:to-sky-400 hover:shadow-xl hover:shadow-sky-200 xl:flex">
+            <ShieldCheck className="size-5 shrink-0 text-white transition-transform duration-300 group-hover:scale-110" />
             <div>
-              <Input
-                icon={LockKeyhole}
-                label="Kata sandi"
-                onChange={setPassword}
-                placeholder="Minimal 8 karakter"
-                type="password"
-                value={password}
-              />
-              {!register && (
-                <button
-                  className="mt-2 float-right text-xs font-semibold text-sky-600 hover:text-sky-700"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (!supabase || !email)
-                      return setNotice("Masukkan alamat email terlebih dahulu.")
-
-                    try {
-                      const { error } =
-                        await supabase.auth.resetPasswordForEmail(email, {
-                          redirectTo: `${window.location.origin}/reset-password`,
-                        })
-
-                      setNotice(
-                        error?.message ||
-                          "Tautan reset kata sandi dikirim ke email.",
-                      )
-                    } catch (error) {
-                      setNotice(error.message || "Gagal mengirim tautan reset.")
-                    }
-                  }}
-                  type="button"
-                >
-                  Lupa kata sandi?
-                </button>
-              )}
+              <p className="text-sm font-bold">Datamu aman</p>
+              <p className="mt-1 text-xs leading-5 text-sky-50">
+                Privasi adalah prioritas. Data kesehatanmu tetap milikmu.
+              </p>
             </div>
-            <Button className="mt-3 w-full" disabled={busy} type="submit">
-              {busy ? "Memproses…" : register ? "Buat akun" : "Masuk"}
-              <ArrowRight className="size-4" />
-            </Button>
-          </form>
-          <p className="mt-8 text-center text-sm text-slate-500">
-            {register ? "Sudah punya akun?" : "Baru di Nutrily?"}{" "}
-            <button
-              className="font-semibold text-sky-600 hover:text-sky-700"
-              onClick={() => navigate(register ? "/login" : "/register")}
-              type="button"
-            >
-              {register ? "Masuk" : "Buat akun"}
-            </button>
-          </p>
+          </div>
           {notice && (
             <p
               aria-live="polite"
@@ -3057,8 +2935,6 @@ export default function App() {
 
       auth: "/login",
 
-      register: "/register",
-
       onboarding: "/onboarding",
 
       dashboard: "/dashboard",
@@ -3077,10 +2953,6 @@ export default function App() {
     <Routes>
       <Route element={<Landing navigate={go} />} path="/" />
       <Route element={<Auth navigate={go} />} path="/login" />
-      <Route
-        element={<Auth initialMode="register" navigate={go} />}
-        path="/register"
-      />
       <Route element={<AuthCallback />} path="/auth/callback" />
       <Route element={<ResetPassword />} path="/reset-password" />
       <Route
