@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+
 import {
   Navigate,
   Route,
@@ -6,6 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom"
+
 import {
   Activity,
   Apple,
@@ -47,9 +49,30 @@ import {
 } from "lucide-react"
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
+
+import Lenis from "lenis"
+
+import gsap from "gsap"
+
+import { ScrollTrigger } from "gsap/ScrollTrigger"
+
 import { api } from "./lib/api"
+
 import { useAuth } from "./lib/AuthProvider"
+
 import { supabase } from "./lib/supabase"
+
+import PhoneScrollHero from "./components/PhoneScrollHero"
+
+import PhoneCarouselSection from "./components/PhoneCarouselSection"
+
+import Preloader from "./components/Preloader"
+
+import FaqSection from "./components/FaqSection"
+
+import CtaSection from "./components/CtaSection"
+
+import GlowCard from "./components/GlowCard"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
@@ -75,6 +98,8 @@ function Button({
 
     ghost: "text-slate-600 hover:bg-slate-100",
 
+    ghostLight: "text-white hover:bg-white/10",
+
     dark: "bg-slate-900 text-white shadow-lg shadow-slate-200 hover:bg-slate-800",
   }
 
@@ -96,15 +121,22 @@ function Button({
   )
 }
 
-function Brand({ compact = false }) {
+function Brand({ compact = false, light = false }) {
   return (
     <div className="flex items-center gap-2.5">
       <div className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200">
         <Leaf className="size-5" strokeWidth={2.4} />
       </div>
       {!compact && (
-        <div className="text-xl font-bold tracking-tight text-slate-900">
-          Nutri<span className="text-sky-500">ly</span>
+        <div
+          className={cn(
+            "text-xl font-bold tracking-tight",
+
+            light ? "text-white" : "text-slate-900",
+          )}
+        >
+          Nutri
+          <span className={light ? "text-sky-300" : "text-sky-500"}>ly</span>
         </div>
       )}
     </div>
@@ -175,6 +207,202 @@ function Pill({ icon: Icon, children, tone = "sky" }) {
   )
 }
 
+function NutrilyHero() {
+  const base = import.meta.env.BASE_URL
+
+  const sectionRef = useRef(null)
+
+  const viewerRef = useRef(null)
+
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    const section = sectionRef.current
+
+    if (!section) return
+
+    let tx = 0
+
+    let ty = 0
+
+    let cx = 0
+
+    let cy = 0
+
+    let raf = 0
+
+    const onMove = (event) => {
+      const rect = section.getBoundingClientRect()
+
+      tx = ((event.clientX - rect.left) / rect.width) * 2 - 1
+
+      ty = ((event.clientY - rect.top) / rect.height) * 2 - 1
+    }
+
+    const onLeave = () => {
+      tx = 0
+
+      ty = 0
+    }
+
+    const tick = () => {
+      cx += (tx - cx) * 0.05
+
+      cy += (ty - cy) * 0.05
+
+      if (wrapRef.current)
+        wrapRef.current.style.transform = `perspective(900px) rotateY(${cx * 6}deg) rotateX(${-cy * 4}deg) translate3d(${cx * 9}px, ${cy * 6}px, 0)`
+
+      if (viewerRef.current)
+        viewerRef.current.cameraOrbit = `${cx * 12}deg ${72 - cy * 6}deg 2.4m`
+
+      raf = requestAnimationFrame(tick)
+    }
+
+    raf = requestAnimationFrame(tick)
+
+    section.addEventListener("pointermove", onMove)
+
+    section.addEventListener("pointerleave", onLeave)
+
+    return () => {
+      cancelAnimationFrame(raf)
+
+      section.removeEventListener("pointermove", onMove)
+
+      section.removeEventListener("pointerleave", onLeave)
+    }
+  }, [])
+
+  return (
+    <section
+      ref={sectionRef}
+      className="relative flex min-h-[102svh] items-center overflow-hidden bg-sky-950"
+    >
+      <img
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+        fetchPriority="high"
+        src={`${base}hero-nutrily.jpg`}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-sky-950/55 to-transparent"
+      />
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col items-center px-5 pb-16 pt-28 sm:px-8 lg:px-10 lg:pb-24 lg:pt-32">
+        <div className="relative mx-auto w-full max-w-2xl">
+          <span
+            aria-hidden="true"
+            className="font-poppins hero-reveal pointer-events-none absolute left-0 top-12 z-0 text-9xl font-extrabold leading-none tracking-tight text-white drop-shadow-lg sm:top-0 lg:-left-14 lg:-top-4 sm:text-[10rem] lg:text-[13rem]"
+          >
+            Nutri
+          </span>
+          <span
+            aria-hidden="true"
+            className="font-poppins hero-reveal pointer-events-none absolute bottom-10 right-0 z-0 text-9xl font-extrabold leading-none tracking-tight text-sky-500 drop-shadow-lg sm:bottom-0 lg:-bottom-4 lg:-right-14 sm:text-[10rem] lg:text-[13rem]"
+          >
+            Ly
+          </span>
+          <div
+            ref={wrapRef}
+            className="hero-reveal relative z-10 will-change-transform"
+          >
+            <img
+              alt="Ilustrasi makanan sehat Nutrily"
+              className="pointer-events-none absolute inset-0 z-[1] m-auto max-h-[480px] w-full object-contain"
+              src={`${base}nutrily.png`}
+            />
+            <model-viewer
+              ref={viewerRef}
+              className="relative z-10"
+              alt="Ilustrasi 3D makanan sehat Nutrily"
+              camera-orbit="0deg 72deg 2.4m"
+              disable-zoom
+              exposure="1"
+              field-of-view="30deg"
+              interaction-prompt="none"
+              loading="eager"
+              min-camera-orbit="auto auto 1.8m"
+              max-camera-orbit="auto auto 3.5m"
+              reveal="auto"
+              shadow-intensity="0"
+              src={`${base}nutrily.glb`}
+              style={{
+                width: "100%",
+
+                height: "480px",
+
+                background: "transparent",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function LandingNav({ navigate }) {
+  const [scrolled, setScrolled] = useState(false)
+
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY
+
+      setScrolled(y > 24)
+
+      const max = document.documentElement.scrollHeight - window.innerHeight
+
+      setProgress(max > 0 ? Math.min(1, Math.max(0, y / max)) : 0)
+    }
+
+    onScroll()
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-30 flex justify-center px-4">
+      <div
+        className={cn(
+          "w-full transition-all duration-300",
+
+          scrolled ? "mt-3 w-full rounded-xl p-[5px] sm:w-[85%]" : "max-w-7xl",
+        )}
+        style={
+          scrolled
+            ? {
+                background: `conic-gradient(#0ea5e9 ${progress * 360}deg, rgba(255,255,255,.18) 0deg)`,
+              }
+            : undefined
+        }
+      >
+        <nav
+          className={cn(
+            "flex w-full items-center justify-between transition-all duration-300",
+
+            scrolled
+              ? "gap-6 rounded-xl bg-sky-950/20 px-4 py-2 shadow-md shadow-sky-950/20 backdrop-blur-[2px]"
+              : "bg-transparent px-1 py-5 sm:px-3",
+          )}
+        >
+          <Brand light />
+          <div className="flex items-center gap-2">
+            <Button className="px-4 sm:px-5" onClick={() => navigate("auth")}>
+              Mulai sekarang <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        </nav>
+      </div>
+    </div>
+  )
+}
+
 function Landing({ navigate }) {
   const features = [
     {
@@ -208,251 +436,265 @@ function Landing({ navigate }) {
     },
   ]
 
+  const stackRef = useRef(null)
+
+  const phoneRef = useRef(null)
+
+  const featRef = useRef(null)
+
+  const footerRef = useRef(null)
+
+  const [loading, setLoading] = useState(true)
+  const landingRef = useRef(null)
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger)
+
+    ScrollTrigger.config({ ignoreMobileResize: true })
+
+    const phone = phoneRef.current
+
+    const feat = featRef.current
+
+    if (!phone || !feat) return
+
+    const pin = ScrollTrigger.create({
+      trigger: phone,
+
+      start: "bottom bottom",
+
+      end: () => `+=${feat.offsetHeight}`,
+
+      pin: true,
+
+      pinSpacing: false,
+
+      anticipatePin: 1,
+
+      invalidateOnRefresh: true,
+    })
+
+    const refresh = () => ScrollTrigger.refresh()
+
+    window.addEventListener("load", refresh)
+
+    if (document.fonts?.ready)
+      document.fonts.ready.then(refresh).catch(() => {})
+
+    ScrollTrigger.refresh()
+
+    return () => {
+      window.removeEventListener("load", refresh)
+
+      pin.kill()
+    }
+  }, [])
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger)
+
+    ScrollTrigger.config({ ignoreMobileResize: true })
+
+    ScrollTrigger.refresh()
+  }, [])
+
+  useEffect(() => {
+    if (loading) {
+      document.body.style.overflow = "hidden"
+      window.__lenis?.stop()
+    } else {
+      document.body.style.overflow = ""
+      window.__lenis?.start()
+      if (landingRef.current) {
+        gsap.fromTo(
+          landingRef.current,
+          { opacity: 0, y: 60, scale: 1.04, filter: "blur(12px)" },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            filter: "blur(0px)",
+            duration: 1.3,
+            ease: "power4.out",
+            clearProps: "transform,filter",
+          },
+        )
+        gsap.fromTo(".hero-reveal", { opacity: 0, y: 48 }, {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          stagger: 0.12,
+          ease: "power3.out",
+          delay: 0.25,
+          clearProps: "transform",
+        })
+      }
+      ScrollTrigger.refresh()
+    }
+  }, [loading])
+
   return (
-    <main className="min-h-screen overflow-hidden bg-white text-slate-900">
-      <nav className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-        <Brand />
-        <div className="flex items-center gap-2">
-          <Button
-            className="hidden sm:inline-flex"
-            onClick={() => navigate("auth")}
-            variant="ghost"
+    <main className="relative min-h-screen overflow-x-clip bg-white text-slate-900">
+      {loading && <Preloader onDone={() => setLoading(false)} />}
+      <div ref={landingRef} style={{ opacity: 0 }}>
+        <LandingNav navigate={navigate} />
+
+        <div className="relative z-10">
+          <NutrilyHero />
+
+          <div
+            ref={stackRef}
+            className="relative -mb-px overflow-clip rounded-b-[2.5rem] bg-sky-500"
           >
-            Masuk
-          </Button>
-          <Button className="px-4 sm:px-5" onClick={() => navigate("register")}>
-            Mulai sekarang <ArrowRight className="size-4" />
-          </Button>
-        </div>
-      </nav>
+            <div ref={phoneRef} className="relative z-0 will-change-transform">
+              <PhoneScrollHero
+                titleComponent={
+                  <>
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-600">
+                      Nutrily di genggamanmu
+                    </p>
+                    <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
+                      Seluruh gizimu,
+                      <br />
+                      <span className="mt-1 block text-sky-500">
+                        dalam sakumu
+                      </span>
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-500">
+                      Pindai, catat, dan pantau gizimu kapan saja langsung dari
+                      ponsel.
+                    </p>
+                  </>
+                }
+              >
+                <img
+                  alt="Aplikasi Nutrily di ponsel"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80"
+                />
+              </PhoneScrollHero>
+            </div>
 
-      <section className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-14 sm:px-8 md:pt-20 lg:grid-cols-[1.02fr_.98fr] lg:px-10 lg:pb-32 lg:pt-24">
-        <div className="relative z-10 max-w-2xl">
-          <h1 className="mt-7 text-5xl font-bold leading-[1.06] tracking-[-0.045em] text-slate-900 sm:text-6xl lg:text-7xl">
-            Makan lebih cerdas.
-            <br />
-            Hidup <span className="relative text-sky-500">lebih sehat.</span>
-          </h1>
-          <p className="mt-7 max-w-xl text-lg leading-8 text-slate-600 sm:text-xl">
-            Pelacakan gizi berbasis AI yang mengubah makanan sehari-hari menjadi
-            insight personal yang jelas—tanpa perlu menebak-nebak.
-          </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Button
-              className="h-13 px-7 text-base"
-              onClick={() => navigate("register")}
+            <section
+              ref={featRef}
+              className="relative z-10 -mt-6 overflow-hidden rounded-t-[2.5rem] bg-sky-500 pb-28 pt-20 shadow-[0_-24px_60px_-20px_rgba(2,132,199,.45)] sm:-mt-10 sm:pb-32 sm:pt-24"
+              id="features"
             >
-              Mulai perjalanan sehatmu <ArrowRight className="size-4.5" />
-            </Button>
-            <Button
-              className="h-13 px-7 text-base"
-              onClick={() =>
-                document
-                  .getElementById("features")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-              variant="secondary"
-            >
-              Lihat demo
-            </Button>
-          </div>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-500">
-            {[
-              "Gratis untuk memulai",
-              "Tanpa kartu kredit",
-              "Privat & aman",
-            ].map((item) => (
-              <span className="flex items-center gap-2" key={item}>
-                <span className="grid size-5 place-items-center rounded-full bg-emerald-50 text-emerald-600">
-                  <Check className="size-3" strokeWidth={3} />
-                </span>
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
-          <div className="absolute -left-16 -top-20 size-64 rounded-full bg-sky-100/70 blur-3xl" />
-          <div className="absolute -bottom-16 -right-20 size-64 rounded-full bg-cyan-100/60 blur-3xl" />
-          <div className="relative rounded-[2rem] border border-white/80 bg-slate-50/80 p-3 shadow-[0_35px_80px_-25px_rgba(15,23,42,.22)] backdrop-blur sm:p-5">
-            <div className="rounded-[1.5rem] border border-slate-100 bg-white p-5 sm:p-7">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">
-                    Ringkasan hari ini
-                  </p>
-                  <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                    Kamu hebat, Alex!
+              <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+                <div className="mx-auto max-w-2xl text-center">
+                  <Pill>Fitur unggulan</Pill>
+                  <h2 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    Semua yang kamu butuhkan untuk hidup sehat
+                  </h2>
+                  <p className="mt-4 leading-7 text-sky-50">
+                    Tiga fitur utama yang membuat perjalanan gizimu lebih mudah
+                    dan menyenangkan.
                   </p>
                 </div>
-                <div className="grid size-11 place-items-center rounded-full bg-sky-50 text-sky-600">
-                  <Activity className="size-5" />
-                </div>
-              </div>
-              <div className="mt-7 grid items-center gap-7 sm:grid-cols-[1fr_1.25fr]">
-                <div className="relative mx-auto grid size-40 place-items-center rounded-full bg-[conic-gradient(#0ea5e9_0_73%,#e0f2fe_73%_100%)]">
-                  <div className="grid size-29 place-items-center rounded-full bg-white text-center shadow-inner">
-                    <div>
-                      <p className="text-3xl font-bold text-slate-900">73%</p>
-                      <p className="text-xs font-medium text-slate-400">
-                        target harian
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    [
-                      "Kalori",
-
-                      "1,620",
-
-                      "2,100 kcal",
-
-                      "bg-sky-500",
-
-                      "w-[76%]",
-                    ],
-
-                    ["Protein", "74g", "96g", "bg-violet-500", "w-[70%]"],
-
-                    ["Air", "1,8L", "2,5L", "bg-cyan-400", "w-[62%]"],
-                  ].map(([name, value, total, color, width]) => (
-                    <div key={name}>
-                      <div className="mb-1.5 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-700">
-                          {name}
-                        </span>
-                        <span className="text-slate-400">
-                          <strong className="text-slate-600">{value}</strong> /{" "}
-                          {total}
-                        </span>
+                <div className="mt-12 grid gap-6 md:grid-cols-3">
+                  {features.map(({ icon: Icon, title, text }, i) => (
+                    <GlowCard
+                      className="h-auto min-h-80 w-full"
+                      customSize
+                      glowColor={["blue", "purple", "green"][i % 3]}
+                      key={title}
+                    >
+                      <div>
+                        <div className="grid size-12 place-items-center rounded-2xl bg-sky-500/10 text-sky-600">
+                          <Icon className="size-5.5" />
+                        </div>
+                        <h3 className="mt-6 text-lg font-bold text-slate-900">
+                          {title}
+                        </h3>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          {text}
+                        </p>
                       </div>
-                      <div className="h-2 rounded-full bg-slate-100">
-                        <div
-                          className={cn("h-full rounded-full", color, width)}
-                        />
-                      </div>
-                    </div>
+                    </GlowCard>
                   ))}
                 </div>
               </div>
-              <div className="mt-7 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-sky-600 shadow-sm">
-                    <WandSparkles className="size-4.5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">
-                      Saran cerdas untukmu
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-slate-500">
-                      Tambahkan camilan kaya protein agar asupanmu tetap sesuai
-                      target sore ini.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -bottom-6 -left-4 flex items-center gap-3 rounded-2xl border border-white bg-white p-3 pr-5 shadow-xl shadow-slate-200/70 sm:-left-10">
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
-              <ShieldCheck className="size-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-800">Pilihan sehat</p>
-              <p className="text-[11px] text-slate-400">Kadar gula rendah</p>
-            </div>
+              <PhoneCarouselSection />
+              <FaqSection />
+            </section>
           </div>
         </div>
-      </section>
 
-      <section className="bg-slate-50 py-20 sm:py-24" id="features">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-          <div className="mx-auto max-w-2xl text-center">
-            <Pill>Dirancang untuk keseharianmu</Pill>
-            <h2 className="mt-5 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Pilihan lebih baik, dengan cara yang mudah
-            </h2>
-            <p className="mt-4 leading-7 text-slate-500">
-              Satu tempat untuk memahami makananmu, membangun kebiasaan lebih
-              baik, dan merasa lebih bugar.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {features.map(({ icon: Icon, title, text, color }) => (
-              <article
-                className="group rounded-2xl border border-slate-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60"
-                key={title}
-              >
-                <div
-                  className={cn(
-                    "grid size-12 place-items-center rounded-2xl",
+        <div aria-hidden className="pointer-events-none h-[100svh]" />
 
-                    color,
-                  )}
-                >
-                  <Icon className="size-5.5" />
-                </div>
-                <h3 className="mt-6 text-lg font-bold text-slate-900">
-                  {title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{text}</p>
-                <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-sky-600 opacity-0 transition group-hover:opacity-100">
-                  Pelajari lebih lanjut <ArrowRight className="size-3.5" />
-                </span>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+        <footer
+          ref={footerRef}
+          className="fixed inset-x-0 bottom-0 z-0 flex h-[100svh] touch-none flex-col justify-center overflow-hidden bg-white"
+        >
+          <CtaSection />
+        </footer>
+      </div>
     </main>
   )
 }
 
 function Auth({ navigate, initialMode = "login" }) {
   const [register, setRegister] = useState(initialMode === "register")
+
   const [name, setName] = useState("")
+
   const [email, setEmail] = useState("")
+
   const [password, setPassword] = useState("")
+
   const [busy, setBusy] = useState(false)
+
   const [notice, setNotice] = useState("")
+
   const user = useAuth().user
 
   useEffect(() => {
     setRegister(initialMode === "register")
   }, [initialMode])
+
   useEffect(() => {
     if (user) {
       api("/profile")
+
         .then((profile) =>
           navigate(
             profile.age && profile.weight_kg ? "/dashboard" : "/onboarding",
+
             { replace: true },
           ),
         )
+
         .catch(() => navigate("/dashboard", { replace: true }))
     }
   }, [navigate, user])
 
   const submit = async (event) => {
     event.preventDefault()
+
     if (!supabase)
       return setNotice("Supabase belum dikonfigurasi. Isi file .env.")
+
     setBusy(true)
+
     setNotice("")
+
     try {
       if (register) {
         const { data, error } = await supabase.auth.signUp({
           email,
+
           password,
+
           options: {
             data: { full_name: name },
+
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         })
+
         if (error) throw error
+
         if (data.session) navigate("/onboarding", { replace: true })
         else
           setNotice(
@@ -461,8 +703,10 @@ function Auth({ navigate, initialMode = "login" }) {
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
+
           password,
         })
+
         if (error) throw error
       }
     } catch (error) {
@@ -475,20 +719,26 @@ function Auth({ navigate, initialMode = "login" }) {
   const signInWithGoogle = async () => {
     if (!supabase)
       return setNotice("Supabase belum dikonfigurasi. Isi file .env.")
+
     setBusy(true)
+
     setNotice("")
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
+
         options: {
           redirectTo:
             import.meta.env.VITE_OAUTH_REDIRECT_URL ||
             `${window.location.origin}/auth/callback`,
         },
       })
+
       if (error) throw error
     } catch (error) {
       setNotice(error.message || "Google OAuth gagal.")
+
       setBusy(false)
     }
   }
@@ -637,11 +887,13 @@ function Auth({ navigate, initialMode = "login" }) {
                   onClick={async () => {
                     if (!supabase || !email)
                       return setNotice("Masukkan alamat email terlebih dahulu.")
+
                     try {
                       const { error } =
                         await supabase.auth.resetPasswordForEmail(email, {
                           redirectTo: `${window.location.origin}/reset-password`,
                         })
+
                       setNotice(
                         error?.message ||
                           "Tautan reset kata sandi dikirim ke email.",
@@ -733,53 +985,85 @@ function ChoiceCard({ active, icon: Icon, title, description, onClick }) {
 
 function Onboarding({ navigate }) {
   const { user } = useAuth()
+
   const [step, setStep] = useState(0)
+
   const [gender, setGender] = useState("Pria")
+
   const [status, setStatus] = useState("Tidak ada")
+
   const [activity, setActivity] = useState("Sedang")
+
   const [goal, setGoal] = useState("Menurunkan berat badan")
+
   const [age, setAge] = useState("")
+
   const [weight, setWeight] = useState("")
+
   const [height, setHeight] = useState("")
+
   const [saving, setSaving] = useState(false)
+
   const [notice, setNotice] = useState("")
+
   const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
 
   useEffect(() => {
     api("/profile")
+
       .then((profile) => {
         if (profile.age) setAge(String(profile.age))
+
         if (profile.weight_kg) setWeight(String(profile.weight_kg))
+
         if (profile.height_cm) setHeight(String(profile.height_cm))
+
         if (profile.gender) setGender(profile.gender)
+
         if (profile.activity) setActivity(profile.activity)
+
         if (profile.goal) setGoal(profile.goal)
+
         if (profile.pregnancy_status) setStatus(profile.pregnancy_status)
       })
+
       .catch((error) => setNotice(error.message))
   }, [])
 
   const finishOnboarding = async () => {
     if (!age || !weight || !height) {
       setNotice("Lengkapi usia, berat badan, dan tinggi badan terlebih dahulu.")
+
       return
     }
+
     setSaving(true)
+
     setNotice("")
+
     try {
       await api("/profile", {
         method: "PUT",
+
         body: JSON.stringify({
           full_name: user?.user_metadata?.full_name || "",
+
           age: Number(age),
+
           gender,
+
           pregnancy_status: gender === "Wanita" ? status : null,
+
           weight_kg: Number(weight),
+
           height_cm: Number(height),
+
           activity,
+
           goal,
         }),
       })
+
       navigate("/dashboard", { replace: true })
     } catch (error) {
       setNotice(error.message)
@@ -797,6 +1081,7 @@ function Onboarding({ navigate }) {
             className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800"
             onClick={async () => {
               await supabase?.auth.signOut()
+
               navigate("/")
             }}
           >
@@ -1005,6 +1290,7 @@ function Onboarding({ navigate }) {
 
                   [
                     "Aktivitas fisik berat",
+
                     "Pekerjaan atau latihan fisik berat",
                   ],
                 ].map(([title, text]) => (
@@ -1103,16 +1389,26 @@ function Onboarding({ navigate }) {
 
 function AppShell({ children, active, navigate }) {
   const { user } = useAuth()
+
   const initials = (user?.user_metadata?.full_name || user?.email || "N")
+
     .split(/[ @]/)
+
     .filter(Boolean)
+
     .slice(0, 2)
+
     .map((part) => part[0].toUpperCase())
+
     .join("")
+
   const items = [
     ["dashboard", "Ringkasan", Activity],
+
     ["scanner", "Pemindai makanan", ScanLine],
+
     ["chat", "Konsultan gizi AI", MessageCircleMore],
+
     ["meals", "Riwayat makan", List],
   ]
 
@@ -1152,6 +1448,7 @@ function AppShell({ children, active, navigate }) {
             className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-500 hover:bg-slate-50"
             onClick={async () => {
               await supabase?.auth.signOut()
+
               navigate("/login")
             }}
           >
@@ -1168,7 +1465,9 @@ function AppShell({ children, active, navigate }) {
             <p className="text-xs font-medium text-slate-400">
               {new Date().toLocaleDateString("id-ID", {
                 weekday: "long",
+
                 day: "numeric",
+
                 month: "long",
               })}
             </p>
@@ -1192,6 +1491,7 @@ function AppShell({ children, active, navigate }) {
               className="grid size-10 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
               onClick={async () => {
                 await supabase?.auth.signOut()
+
                 navigate("/login")
               }}
             >
@@ -1246,49 +1546,79 @@ function AppShell({ children, active, navigate }) {
 
 function Dashboard({ navigate }) {
   const [summary, setSummary] = useState(null)
+
   const [loadError, setLoadError] = useState("")
+
   useEffect(() => {
     api("/dashboard")
+
       .then(setSummary)
+
       .catch((error) => setLoadError(error.message))
   }, [])
+
   const totals = summary?.totals || {}
+
   const targets = summary?.targets || {}
+
   const macros = [
     [
       "Kalori",
+
       totals.calories || 0,
+
       targets.calories || 2100,
+
       "kcal",
+
       "bg-sky-500",
     ],
+
     [
       "Protein",
+
       totals.protein_g || 0,
+
       targets.protein_g || 100,
+
       "g",
+
       "bg-violet-500",
     ],
+
     ["Lemak", totals.fat_g || 0, targets.fat_g || 70, "g", "bg-amber-400"],
+
     [
       "Karbohidrat",
+
       totals.carbs_g || 0,
+
       targets.carbs_g || 260,
+
       "g",
+
       "bg-emerald-500",
     ],
   ].map(([name, current, target, unit, color]) => ({
     name,
+
     current: Number(current).toFixed(0),
+
     target: `${target} ${unit}`,
+
     pct: `${Math.min(100, Math.round((current / target) * 100))}%`,
+
     color,
   }))
+
   const chartData = [
     { name: "Protein", value: totals.protein_g, color: "#8B5CF6" },
+
     { name: "Lemak", value: totals.fat_g, color: "#F59E0B" },
+
     { name: "Karbohidrat", value: totals.carbs_g, color: "#10B981" },
   ].filter(({ value }) => value > 0)
+
   return (
     <AppShell active="dashboard" navigate={navigate}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
@@ -1304,6 +1634,7 @@ function Dashboard({ navigate }) {
               Tinggal{" "}
               {Math.max(
                 0,
+
                 (targets.calories || 2100) - (totals.calories || 0),
               ).toFixed(0)}{" "}
               kkal lagi untuk mencapai target hari ini.
@@ -1364,6 +1695,7 @@ function Dashboard({ navigate }) {
                     <p className="text-4xl font-bold tracking-tight text-slate-900">
                       {Math.min(
                         100,
+
                         Math.round(
                           ((totals.calories || 0) /
                             (targets.calories || 2100)) *
@@ -1557,117 +1889,184 @@ function Dashboard({ navigate }) {
 
 function Scanner({ navigate }) {
   const [scanState, setScanState] = useState("ready")
+
   const [scanMode, setScanMode] = useState("label")
+
   const [items, setItems] = useState([])
+
   const [notice, setNotice] = useState("")
+
   const [busy, setBusy] = useState(false)
+
   const [advice, setAdvice] = useState("")
+
   const [sessionId, setSessionId] = useState("")
+
   const [messages, setMessages] = useState([])
+
   const [question, setQuestion] = useState("")
+
   const imageInput = useRef(null)
+
   const toNumber = (value) => {
     if (value == null || value === "") return 0
+
     if (typeof value === "number") return Number.isFinite(value) ? value : 0
+
     const cleaned = String(value)
+
       .replace(",", ".")
+
       .replace(/[^0-9.\-]/g, "")
+
     if (!cleaned || cleaned === "-" || cleaned === ".") return 0
+
     const n = Number(cleaned)
+
     return Number.isFinite(n) ? n : 0
   }
+
   const showNumber = (value) =>
     value == null || value === "" ? "?" : toNumber(value)
+
   const totals = items.reduce(
     (sum, item) => ({
       calories: sum.calories + toNumber(item.calories),
+
       protein_g: sum.protein_g + toNumber(item.protein_g),
+
       carbs_g: sum.carbs_g + toNumber(item.carbs_g),
+
       fat_g: sum.fat_g + toNumber(item.fat_g),
+
       sugar_g: sum.sugar_g + toNumber(item.sugar_g),
+
       sodium_mg: sum.sodium_mg + toNumber(item.sodium_mg),
     }),
+
     {
       calories: 0,
+
       protein_g: 0,
+
       carbs_g: 0,
+
       fat_g: 0,
+
       sugar_g: 0,
+
       sodium_mg: 0,
     },
   )
+
   const scanImage = async (event) => {
     const image = event.target.files?.[0]
+
     if (!image) return
+
     setScanState("scanning")
+
     setNotice("")
+
     const form = new FormData()
+
     form.append("image", image)
+
     form.append("mode", scanMode)
+
     try {
       const result = await api("/scan", { method: "POST", body: form })
+
       const found = Array.isArray(result.items) ? result.items : [result]
+
       if (!found.length) {
         setNotice(
           scanMode === "receipt"
             ? "Tidak ada makanan/minuman/buah terbaca di struk. Pastikan foto struk jelas."
             : "Tidak ada hasil terbaca. Pastikan label jelas.",
         )
+
         setScanState(items.length ? "confirm" : "ready")
+
         return
       }
+
       setItems((current) => [...current, ...found])
+
       setScanState("confirm")
     } catch (error) {
       setNotice(error.message)
+
       setScanState(items.length ? "confirm" : "ready")
     } finally {
       event.target.value = ""
     }
   }
+
   const removeItem = (index) =>
     setItems((current) => current.filter((_, i) => i !== index))
+
   const confirmItems = async () => {
     if (!items.length || busy) return
+
     setBusy(true)
+
     setNotice("")
+
     try {
       await Promise.all(
         items.map((item) =>
           api("/meals", {
             method: "POST",
+
             body: JSON.stringify({
               name: item.name || "Hasil pemindaian",
+
               calories: toNumber(item.calories),
+
               protein_g: toNumber(item.protein_g),
+
               carbs_g: toNumber(item.carbs_g),
+
               fat_g: toNumber(item.fat_g),
+
               ...(item.sugar_g != null
                 ? { sugar_g: toNumber(item.sugar_g) }
                 : {}),
+
               ...(item.sodium_mg != null
                 ? { sodium_mg: toNumber(item.sodium_mg) }
                 : {}),
+
               ...(item.serving_size ? { serving_size: item.serving_size } : {}),
             }),
           }),
         ),
       )
+
       const id = crypto.randomUUID()
+
       setSessionId(id)
+
       const lines = items.map(
         (item) =>
           `- ${item.name || "Makanan"} (${item.serving_size || "1 sajian"}): ${toNumber(item.calories)} kcal, protein ${toNumber(item.protein_g)}g, karbo ${toNumber(item.carbs_g)}g, lemak ${toNumber(item.fat_g)}g, gula ${toNumber(item.sugar_g)}g, natrium ${toNumber(item.sodium_mg)}mg`,
       )
+
       const { answer } = await api("/chat", {
         method: "POST",
+
         body: JSON.stringify({
           conversation_id: id,
+
           message: `Saya baru memindai makanan berikut:\n${lines.join("\n")}\nTotal: ${totals.calories} kcal, protein ${totals.protein_g}g, karbo ${totals.carbs_g}g, lemak ${totals.fat_g}g, gula ${totals.sugar_g}g, natrium ${totals.sodium_mg}mg.\nBeri saran gizi singkat (maksimal 5 poin) untuk sesi makan ini. Hanya bahas gizi dan kesehatan.`,
         }),
       })
+
       setAdvice(answer)
+
       setMessages([{ from: "ai", text: answer }])
+
       setScanState("summary")
     } catch (error) {
       setNotice(error.message)
@@ -1675,37 +2074,56 @@ function Scanner({ navigate }) {
       setBusy(false)
     }
   }
+
   const ask = async (event) => {
     event.preventDefault()
+
     if (!question.trim() || busy) return
+
     const text = question.trim()
+
     setBusy(true)
+
     setNotice("")
+
     setMessages((current) => [...current, { from: "user", text }])
+
     setQuestion("")
+
     try {
       const { answer } = await api("/chat", {
         method: "POST",
+
         body: JSON.stringify({ conversation_id: sessionId, message: text }),
       })
+
       setMessages((current) => [...current, { from: "ai", text: answer }])
     } catch (error) {
       setNotice(error.message)
+
       setMessages((current) =>
         current.filter((item) => !(item.from === "user" && item.text === text)),
       )
+
       setQuestion(text)
     } finally {
       setBusy(false)
     }
   }
+
   const resetScan = () => {
     setItems([])
+
     setAdvice("")
+
     setSessionId("")
+
     setMessages([])
+
     setQuestion("")
+
     setNotice("")
+
     setScanState("ready")
   }
 
@@ -1729,11 +2147,13 @@ function Scanner({ navigate }) {
           <div className="mt-4 grid max-w-md grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
             {[
               ["label", "Label produk", ScanLine],
+
               ["receipt", "Struk", ReceiptText],
             ].map(([value, label, Icon]) => (
               <button
                 className={cn(
                   "flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+
                   scanMode === value
                     ? "bg-white text-sky-600 shadow-sm"
                     : "text-slate-500 hover:text-slate-700",
@@ -1950,10 +2370,15 @@ function Scanner({ navigate }) {
                       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                         {[
                           [`${showNumber(item.calories)}`, "kcal"],
+
                           [`${showNumber(item.protein_g)}g`, "protein"],
+
                           [`${showNumber(item.carbs_g)}g`, "karbo"],
+
                           [`${showNumber(item.fat_g)}g`, "lemak"],
+
                           [`${showNumber(item.sugar_g)}g`, "gula"],
+
                           [`${showNumber(item.sodium_mg)}mg`, "natrium"],
                         ].map(([value, label]) => (
                           <div
@@ -2003,10 +2428,15 @@ function Scanner({ navigate }) {
                 <div className="mt-6 grid grid-cols-3 gap-2 text-center">
                   {[
                     [`${totals.calories}`, "kcal"],
+
                     [`${totals.protein_g}g`, "protein"],
+
                     [`${totals.carbs_g}g`, "karbo"],
+
                     [`${totals.fat_g}g`, "lemak"],
+
                     [`${totals.sugar_g}g`, "gula"],
+
                     [`${totals.sodium_mg}mg`, "natrium"],
                   ].map(([value, label]) => (
                     <div
@@ -2040,6 +2470,7 @@ function Scanner({ navigate }) {
                     <div
                       className={cn(
                         "max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-6",
+
                         item.from === "ai"
                           ? "bg-sky-50 text-slate-700"
                           : "ml-auto bg-sky-500 text-white",
@@ -2099,38 +2530,55 @@ function Scanner({ navigate }) {
 
 function Chat({ navigate }) {
   const [message, setMessage] = useState("")
+
   const [notice, setNotice] = useState("")
+
   const [sending, setSending] = useState(false)
+
   const [messages, setMessages] = useState([])
+
   const [conversationId, setConversationId] = useState("")
+
   const [conversations, setConversations] = useState([])
+
   const [showMobileChats, setShowMobileChats] = useState(false)
+
   useEffect(() => {
     Promise.all([api("/chat"), api("/conversations")])
+
       .then(([result, items]) => {
         setConversationId(result.conversation_id || crypto.randomUUID())
+
         setConversations(items)
+
         setMessages(
           result.messages.map((item) => ({
             from: item.role === "assistant" ? "ai" : "user",
+
             text: item.content,
           })),
         )
       })
+
       .catch((error) => setNotice(error.message))
   }, [])
 
   const openConversation = async (id) => {
     setNotice("")
+
     setShowMobileChats(false)
+
     try {
       const result = await api(
         `/chat?conversation_id=${encodeURIComponent(id)}`,
       )
+
       setConversationId(id)
+
       setMessages(
         result.messages.map((item) => ({
           from: item.role === "assistant" ? "ai" : "user",
+
           text: item.content,
         })),
       )
@@ -2145,42 +2593,60 @@ function Chat({ navigate }) {
     setMessages([
       {
         from: "ai",
+
         text: "Percakapan baru. Ada yang ingin kamu tanyakan tentang makanan atau gizimu?",
       },
     ])
+
     setMessage("")
+
     setNotice("")
+
     setShowMobileChats(false)
   }
 
   const send = async (event) => {
     event.preventDefault()
+
     if (!message.trim() || sending) return
+
     const question = message.trim()
+
     setSending(true)
+
     setNotice("")
+
     setMessages((current) => [...current, { from: "user", text: question }])
+
     setMessage("")
+
     try {
       const result = await api("/chat", {
         method: "POST",
+
         body: JSON.stringify({
           message: question,
+
           conversation_id: conversationId,
         }),
       })
+
       setMessages((current) => [
         ...current,
+
         { from: "ai", text: result.answer },
       ])
+
       setConversations(await api("/conversations"))
     } catch (error) {
       setNotice(error.message)
+
       setMessages((current) =>
         current.filter(
           (item) => !(item.from === "user" && item.text === question),
         ),
       )
+
       setMessage(question)
     } finally {
       setSending(false)
@@ -2362,12 +2828,17 @@ function Chat({ navigate }) {
 
 function MealHistory({ navigate }) {
   const [meals, setMeals] = useState([])
+
   const [error, setError] = useState("")
+
   useEffect(() => {
     api("/meals")
+
       .then(setMeals)
+
       .catch((reason) => setError(reason.message))
   }, [])
+
   return (
     <AppShell active="meals" navigate={navigate}>
       <main className="mx-auto max-w-5xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
@@ -2426,66 +2897,89 @@ function MealHistory({ navigate }) {
 
 function ProtectedRoute({ children }) {
   const { loading, user } = useAuth()
+
   if (loading)
     return (
       <main className="grid min-h-screen place-items-center text-sm text-slate-500">
         Memuat sesi…
       </main>
     )
+
   return user ? children : <Navigate replace to="/login" />
 }
 
 function AuthCallback() {
   const { loading, user } = useAuth()
+
   const [destination, setDestination] = useState(null)
+
   useEffect(() => {
     if (loading) return
+
     if (!user) {
       setDestination("/login")
+
       return
     }
+
     api("/profile")
+
       .then((profile) =>
         setDestination(
           profile.age && profile.weight_kg ? "/dashboard" : "/onboarding",
         ),
       )
+
       .catch(() => setDestination("/onboarding"))
   }, [loading, user])
+
   if (loading)
     return (
       <main className="grid min-h-screen place-items-center text-sm text-slate-500">
         Memverifikasi akun…
       </main>
     )
+
   if (!destination)
     return (
       <main className="grid min-h-screen place-items-center text-sm text-slate-500">
         Memuat profil…
       </main>
     )
+
   return <Navigate replace to={destination} />
 }
 
 function ResetPassword() {
   const [password, setPassword] = useState("")
+
   const [notice, setNotice] = useState("")
+
   const [saving, setSaving] = useState(false)
+
   const { user, loading } = useAuth()
+
   if (loading)
     return (
       <main className="grid min-h-screen place-items-center text-sm text-slate-500">
         Memverifikasi tautan…
       </main>
     )
+
   if (!user) return <Navigate replace to="/login" />
+
   const submit = async (event) => {
     event.preventDefault()
+
     setSaving(true)
+
     const { error } = await supabase.auth.updateUser({ password })
+
     setNotice(error?.message || "Kata sandi diperbarui.")
+
     setSaving(false)
   }
+
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-5">
       <form
@@ -2525,21 +3019,57 @@ function ResetPassword() {
 
 export default function App() {
   const navigate = useNavigate()
+
   const { pathname } = useLocation()
+
   useEffect(() => {
-    window.scrollTo({ top: 0 })
+    gsap.registerPlugin(ScrollTrigger)
+
+    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true })
+
+    window.__lenis = lenis
+
+    lenis.on("scroll", ScrollTrigger.update)
+
+    const tick = (time) => lenis.raf(time * 1000)
+
+    gsap.ticker.add(tick)
+
+    gsap.ticker.lagSmoothing(0)
+
+    return () => {
+      gsap.ticker.remove(tick)
+
+      lenis.destroy()
+
+      window.__lenis = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (window.__lenis) window.__lenis.scrollTo(0, { immediate: true })
+    else window.scrollTo({ top: 0 })
   }, [pathname])
+
   const go = (next, options) => {
     const routes = {
       landing: "/",
+
       auth: "/login",
+
       register: "/register",
+
       onboarding: "/onboarding",
+
       dashboard: "/dashboard",
+
       scanner: "/scanner",
+
       chat: "/chat",
+
       meals: "/meals",
     }
+
     navigate(next.startsWith("/") ? next : routes[next] || "/", options)
   }
 
