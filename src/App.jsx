@@ -17,10 +17,11 @@ import {
   Camera,
   Check,
   ChevronDown,
-  CircleUserRound,
+  CircleAlert,
   Clock3,
   Dumbbell,
   Flame,
+  ExternalLink,
   HeartPulse,
   History,
   Leaf,
@@ -40,6 +41,7 @@ import {
   TrendingUp,
   Upload,
   Utensils,
+  UserRound,
   WandSparkles,
   X,
   Zap,
@@ -57,6 +59,8 @@ import { api, verifyTurnstile } from "./lib/api"
 
 import { useAuth } from "./lib/AuthProvider"
 
+import { hasOnboardingInput, validateOnboardingStep } from "./lib/onboarding"
+
 import { supabase } from "./lib/supabase"
 
 import PhoneScrollHero from "./components/PhoneScrollHero"
@@ -70,6 +74,8 @@ import FaqSection from "./components/FaqSection"
 import CtaSection from "./components/CtaSection"
 
 import AuthGridBackground from "./components/AuthGridBackground"
+
+import ProfileDropdown from "./components/ui/profile-dropdown"
 
 import Turnstile from "./components/Turnstile"
 
@@ -156,10 +162,16 @@ function Input({
   value,
 
   onChange,
+
+  min,
+
+  max,
+
+  step,
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-slate-700">
+      <span className="mb-2 block text-sm font-semibold tracking-[-0.015em] text-slate-800">
         {label}
       </span>
       <span className="relative block">
@@ -168,12 +180,15 @@ function Input({
         )}
         <input
           className={cn(
-            "h-12 w-full rounded-xl border border-slate-200 bg-white pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100",
+            "h-12 w-full rounded-xl border border-slate-200 bg-white pr-4 text-[15px] text-slate-900 shadow-sm shadow-slate-900/[0.02] outline-none transition duration-200 placeholder:text-slate-400 hover:border-sky-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100",
 
             Icon ? "pl-11" : "pl-4",
           )}
           onChange={(event) => onChange?.(event.target.value)}
           placeholder={placeholder}
+          min={min}
+          max={max}
+          step={step}
           required
           type={type}
           value={value}
@@ -197,7 +212,7 @@ function Pill({ icon: Icon, children, tone = "sky" }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1",
+        "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold ring-1 ring-inset",
 
         tones[tone],
       )}
@@ -205,6 +220,184 @@ function Pill({ icon: Icon, children, tone = "sky" }) {
       {Icon && <Icon className="size-3.5" />}
       {children}
     </span>
+  )
+}
+
+function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
+  const nutrients = targets
+    ? [
+        ["Protein", targets.protein_g, "g"],
+        ["Lemak total", targets.fat_g, "g"],
+        ["Karbohidrat", targets.carbs_g, "g"],
+        ["Gula (maks.)", targets.sugar_g, "g"],
+        ["Natrium (maks.)", targets.sodium_mg, "mg"],
+      ]
+    : []
+
+  return (
+    <aside
+      aria-live="polite"
+      className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-white p-4 shadow-[0_16px_38px_-28px_rgba(14,165,233,.45)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_20px_42px_-26px_rgba(14,165,233,.4)] sm:p-5"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-sky-600 shadow-sm">
+          <HeartPulse className="size-5" />
+        </span>
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">
+            {targets
+              ? "Estimasi kebutuhan personal"
+              : "Acuan AKG harian"}
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Permenkes RI No. 28 Tahun 2019
+          </p>
+        </div>
+      </div>
+
+      {targets ? (
+        <>
+          <div className="mt-4 rounded-xl bg-white p-3.5">
+            <p className="text-[13px] font-medium tracking-[-0.01em] text-slate-500">
+              Estimasi energi
+              {targets.addition ? " · termasuk penyesuaian kondisi" : ""}
+            </p>
+            <p className="mt-1 text-[1.7rem] font-bold tracking-[-0.04em] text-sky-700">
+              {targets.calories.toLocaleString("id-ID")}{" "}
+              <span className="text-sm font-semibold">kkal</span>
+            </p>
+          </div>
+          <dl className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1 xl:gap-0">
+            {nutrients.map(([label, amount, unit]) => (
+              <div
+                className="rounded-lg bg-white/75 px-2.5 py-2.5 transition-colors hover:bg-white xl:flex xl:items-center xl:justify-between xl:rounded-none xl:border-b xl:border-sky-100 xl:bg-transparent xl:px-1"
+                key={label}
+              >
+                <dt className="text-[13px] font-medium text-slate-500">
+                  {label}
+                </dt>
+                <dd className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em] text-slate-800 xl:mt-0">
+                  {amount} {unit}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-[13px] leading-6 text-slate-500">
+            Kelompok usia {age} tahun. AKG resmi menjadi dasar; faktor
+            tubuh dan aktivitas membentuk estimasi personal.
+          </p>
+        </>
+      ) : (
+        <p className="mt-4 text-[13px] leading-6 text-slate-600">
+          Isi usia dan pilih jenis kelamin untuk melihat acuan AKG yang sesuai.
+        </p>
+      )}
+
+      <details className="group relative mt-3">
+        <summary className="flex min-h-11 w-full cursor-pointer list-none items-center justify-between gap-2 rounded-xl border border-sky-100 bg-gradient-to-r from-white to-sky-50/60 px-3.5 text-[13px] font-semibold text-sky-700 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-sky-300 hover:from-sky-50 hover:to-white hover:text-sky-900 hover:shadow-[0_12px_24px_-14px_rgba(14,165,233,.55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 group-open:border-sky-200 group-open:bg-sky-50/70 [&::-webkit-details-marker]:hidden">
+          Sumber & metode
+          <ChevronDown className="size-4 text-sky-500 transition-transform duration-300 group-open:rotate-180" />
+        </summary>
+        <div
+          className={cn(
+            "absolute left-0 z-20 w-full rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-[0_20px_48px_-20px_rgba(15,23,42,.28)] backdrop-blur-xl",
+            dropdownOpensDown
+              ? "bottom-full mb-2 lg:top-full lg:bottom-auto lg:mt-2 lg:mb-0"
+              : "bottom-full mb-2 lg:top-auto lg:bottom-full lg:mt-0 lg:mb-2",
+          )}
+        >
+          <a
+            className="group/link flex items-center justify-between gap-1.5 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-sky-100 hover:bg-sky-50/70 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+            href="https://peraturan.go.id/files/bn956-2019.pdf"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>
+              <span className="block font-semibold">
+                Permenkes RI No. 28/2019
+              </span>
+              <span className="block text-[9px] leading-3 text-slate-500">
+                Tabel AKG resmi · Lampiran I
+              </span>
+            </span>
+            <ExternalLink
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-slate-400 transition duration-200 group-hover/link:-translate-y-0.5 group-hover/link:translate-x-0.5 group-hover/link:text-sky-600"
+            />
+          </a>
+          <a
+            className="group/link flex items-center justify-between gap-1.5 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-sky-100 hover:bg-sky-50/70 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+            href="https://doi.org/10.1093/ajcn/51.2.241"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>
+              <span className="block font-semibold">Mifflin–St Jeor</span>
+              <span className="block text-[9px] leading-3 text-slate-500">
+                Estimasi metabolisme berdasarkan profil tubuh
+              </span>
+            </span>
+            <ExternalLink
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-slate-400 transition duration-200 group-hover/link:-translate-y-0.5 group-hover/link:translate-x-0.5 group-hover/link:text-sky-600"
+            />
+          </a>
+          <a
+            className="group/link flex items-center justify-between gap-1.5 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-sky-100 hover:bg-sky-50/70 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+            href="https://doi.org/10.1186/s12970-017-0177-8"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>
+              <span className="block font-semibold">ISSN · Protein & olahraga</span>
+              <span className="block text-[9px] leading-3 text-slate-500">
+                Acuan 1,4–2,0 g/kg/hari; estimasi gym memakai 1,6 g/kg
+              </span>
+            </span>
+            <ExternalLink
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-slate-400 transition duration-200 group-hover/link:-translate-y-0.5 group-hover/link:translate-x-0.5 group-hover/link:text-sky-600"
+            />
+          </a>
+          <a
+            className="group/link flex items-center justify-between gap-1.5 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-sky-100 hover:bg-sky-50/70 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+            href="https://peraturan.bpk.go.id/Details/172111/permenkes-no-30-tahun-2013"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>
+              <span className="block font-semibold">
+                Permenkes RI No. 30/2013
+              </span>
+              <span className="block text-[9px] leading-3 text-slate-500">
+                Batas konsumsi gula 50 g per hari
+              </span>
+            </span>
+            <ExternalLink
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-slate-400 transition duration-200 group-hover/link:-translate-y-0.5 group-hover/link:translate-x-0.5 group-hover/link:text-sky-600"
+            />
+          </a>
+          <a
+            className="group/link flex items-center justify-between gap-1.5 rounded-lg border border-transparent px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-sky-100 hover:bg-sky-50/70 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+            href="https://www.who.int/news-room/fact-sheets/detail/sodium-reduction"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span>
+              <span className="block font-semibold">WHO · Natrium</span>
+              <span className="block text-[9px] leading-3 text-slate-500">
+                Dewasa maks. 2.000 mg; usia 13–15 menyesuaikan energi
+              </span>
+            </span>
+            <ExternalLink
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-slate-400 transition duration-200 group-hover/link:-translate-y-0.5 group-hover/link:translate-x-0.5 group-hover/link:text-sky-600"
+            />
+          </a>
+        </div>
+      </details>
+    </aside>
   )
 }
 
@@ -815,40 +1008,54 @@ function Auth({ navigate }) {
   )
 }
 
-function ChoiceCard({ active, icon: Icon, title, description, onClick }) {
+function ChoiceCard({
+  active,
+  icon: Icon,
+  title,
+  description,
+  onClick,
+  className,
+}) {
   return (
     <button
+      aria-pressed={active}
       className={cn(
-        "relative flex min-h-24 w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all",
+        "group relative flex min-h-32 w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 ease-out focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:gap-4 sm:p-5",
+        className,
 
         active
-          ? "border-sky-400 bg-sky-50 shadow-[0_0_0_3px_rgba(14,165,233,.08)]"
-          : "border-slate-200 bg-white hover:border-sky-200 hover:bg-slate-50",
+          ? "-translate-y-0.5 border-sky-300 bg-gradient-to-br from-sky-50 to-white shadow-[0_14px_32px_-20px_rgba(14,165,233,.55)] ring-1 ring-sky-200"
+          : "border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03] hover:-translate-y-1 hover:border-sky-300 hover:bg-sky-50/40 hover:shadow-lg hover:shadow-sky-100/80",
       )}
       onClick={onClick}
+      type="button"
     >
       {Icon && (
         <span
           className={cn(
-            "grid size-11 shrink-0 place-items-center rounded-xl",
+            "mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl transition duration-200 group-hover:scale-105",
 
-            active ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500",
+            active
+              ? "bg-sky-500 text-white shadow-md shadow-sky-200"
+              : "bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-700",
           )}
         >
           <Icon className="size-5" />
         </span>
       )}
-      <span>
-        <span className="block text-sm font-bold text-slate-800">{title}</span>
+      <span className="min-w-0 pr-6">
+        <span className="block text-[15px] font-semibold tracking-[-0.02em] text-slate-900">
+          {title}
+        </span>
         {description && (
-          <span className="mt-1 block text-xs leading-5 text-slate-500">
+          <span className="mt-1.5 block text-[13px] leading-5 text-slate-500">
             {description}
           </span>
         )}
       </span>
       <span
         className={cn(
-          "absolute right-4 top-4 grid size-5 place-items-center rounded-full border",
+          "absolute right-4 top-4 grid size-5 place-items-center rounded-full border transition duration-200",
 
           active
             ? "border-sky-500 bg-sky-500 text-white"
@@ -862,6 +1069,698 @@ function ChoiceCard({ active, icon: Icon, title, description, onClick }) {
 }
 
 function Onboarding({ navigate }) {
+  const { user } = useAuth()
+
+  const [step, setStep] = useState(0)
+
+  const [gender, setGender] = useState("")
+
+  const [status, setStatus] = useState("")
+
+  const [activity, setActivity] = useState("")
+
+  const [isGym, setIsGym] = useState(null)
+
+  const [goal, setGoal] = useState("")
+
+  const [age, setAge] = useState("")
+
+  const [weight, setWeight] = useState("")
+
+  const [height, setHeight] = useState("")
+
+  const [saving, setSaving] = useState(false)
+
+  const [notice, setNotice] = useState("")
+
+  const [profileLoaded, setProfileLoaded] = useState(false)
+
+  const [previewTargets, setPreviewTargets] = useState(null)
+
+  const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
+  const stepDescriptions = [
+    "Tentukan acuan dasarmu",
+    "Berat dan tinggi badan",
+    "Rutinitas selama seminggu",
+    "Pilih tujuan gizimu",
+  ]
+
+  useEffect(() => {
+    api("/profile")
+
+      .then((profile) => {
+        if (profile.age) setAge(String(profile.age))
+
+        if (profile.weight_kg) setWeight(String(profile.weight_kg))
+
+        if (profile.height_cm) setHeight(String(profile.height_cm))
+
+        if (profile.gender) setGender(profile.gender)
+
+        if (profile.activity) setActivity(profile.activity)
+
+        if (typeof profile.is_gym === "boolean") setIsGym(profile.is_gym)
+
+        if (profile.goal) setGoal(profile.goal)
+
+        if (profile.pregnancy_status) setStatus(profile.pregnancy_status)
+      })
+
+      .catch((error) => setNotice(error.message))
+      .finally(() => setProfileLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    const years = Number(age)
+    const kilograms = Number(weight)
+    const centimeters = Number(height)
+    if (
+      !Number.isInteger(years) ||
+      years < 13 ||
+      years > 120 ||
+      !gender ||
+      !Number.isFinite(kilograms) ||
+      kilograms < 1 ||
+      kilograms > 500 ||
+      !Number.isFinite(centimeters) ||
+      centimeters < 30 ||
+      centimeters > 275 ||
+      !activity ||
+      typeof isGym !== "boolean" ||
+      !goal ||
+      (gender === "Wanita" && !status)
+    ) {
+      setPreviewTargets(null)
+      return
+    }
+
+    let active = true
+    setPreviewTargets(null)
+    const timer = window.setTimeout(() => {
+      api("/targets", {
+        method: "POST",
+        body: JSON.stringify({
+          age: years,
+          gender,
+          pregnancy_status: gender === "Wanita" ? status : null,
+          weight_kg: kilograms,
+          height_cm: centimeters,
+          activity,
+          is_gym: isGym,
+          goal,
+        }),
+      })
+        .then((result) => {
+          if (active)
+            setPreviewTargets({ ...result.targets, addition: result.addition })
+        })
+        .catch((error) => {
+          if (active) {
+            setPreviewTargets(null)
+            setNotice(error.message)
+          }
+        })
+    }, 150)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [age, gender, status, weight, height, activity, isGym, goal])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(""), 4500)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  const validateStep = (stepIndex) =>
+    validateOnboardingStep(stepIndex, {
+      age,
+      gender,
+      status,
+      weight,
+      height,
+      activity,
+      isGym,
+      goal,
+    })
+
+  const formStarted = hasOnboardingInput({
+    age,
+    gender,
+    status,
+    weight,
+    height,
+    activity,
+    isGym,
+    goal,
+  })
+  const dropdownOpensDown = profileLoaded && (!formStarted || !previewTargets)
+
+  const finishOnboarding = async () => {
+    for (let index = 0; index < steps.length; index += 1) {
+      const error = validateStep(index)
+      if (error) {
+        setStep(index)
+        setNotice(error)
+        return
+      }
+    }
+
+    const years = Number(age)
+    const kilograms = Number(weight)
+    const centimeters = Number(height)
+
+    if (!Number.isInteger(years) || years < 13 || years > 120) {
+      setStep(0)
+      setNotice("Masukkan usia antara 13 hingga 120 tahun.")
+
+      return
+    }
+
+    if (
+      !Number.isFinite(kilograms) ||
+      kilograms < 1 ||
+      kilograms > 500 ||
+      !Number.isFinite(centimeters) ||
+      centimeters < 30 ||
+      centimeters > 275
+    ) {
+      setStep(1)
+      setNotice("Periksa kembali berat dan tinggi badanmu.")
+
+      return
+    }
+
+    setSaving(true)
+
+    setNotice("")
+
+    try {
+      await api("/profile", {
+        method: "PUT",
+
+        body: JSON.stringify({
+          full_name: user?.user_metadata?.full_name || "",
+
+          age: years,
+
+          gender,
+
+          pregnancy_status: gender === "Wanita" ? status : null,
+
+          weight_kg: kilograms,
+
+          height_cm: centimeters,
+
+          activity,
+
+          is_gym: isGym,
+
+          goal,
+        }),
+      })
+
+      navigate("/dashboard", { replace: true })
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const continueStep = () => {
+    const error = validateStep(step)
+    if (error) {
+      setNotice(error)
+      return
+    }
+
+    setNotice("")
+    setStep((current) => Math.min(3, current + 1))
+  }
+
+  return (
+    <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+          <Brand />
+          <ProfileDropdown
+            data={{
+              name:
+                user?.user_metadata?.full_name ||
+                user?.email?.split("@")[0] ||
+                "Profil Nutrily",
+              email: user?.email || "",
+              avatar: user?.user_metadata?.avatar_url || "",
+            }}
+            onSignOut={async () => {
+              await supabase?.auth.signOut()
+              navigate("/")
+            }}
+          />
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-7xl items-start gap-5 px-4 py-5 pb-10 sm:px-6 sm:py-8 lg:grid-cols-[180px_minmax(0,1fr)_270px] lg:gap-5 lg:px-6 xl:grid-cols-[210px_minmax(0,1fr)_310px] xl:gap-7 xl:px-8">
+        <aside className="sticky top-24 hidden lg:flex lg:flex-col">
+          <p className="text-[13px] font-bold tracking-wide text-slate-400">
+            Profilmu
+          </p>
+          <nav aria-label="Langkah pengisian profil" className="mt-4">
+            {steps.map((name, index) => (
+              <div className="relative pb-2" key={name}>
+                {index < steps.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute bottom-[-1.875rem] left-[1.875rem] top-[1.875rem] z-0 w-px",
+                      index < step ? "bg-emerald-300" : "bg-slate-200",
+                    )}
+                  />
+                )}
+                <button
+                  aria-current={index === step ? "step" : undefined}
+                  disabled={index > step}
+                  className={cn(
+                    "relative z-10 flex min-h-[4.5rem] w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
+                    index === step
+                      ? "bg-white shadow-sm ring-1 ring-sky-100"
+                      : index < step
+                        ? "hover:bg-white"
+                        : "cursor-not-allowed",
+                  )}
+                  onClick={() => {
+                    setNotice("")
+                    setStep(index)
+                  }}
+                  type="button"
+                >
+                  <span
+                    className={cn(
+                      "relative grid size-9 shrink-0 place-items-center rounded-full border text-xs font-semibold transition duration-200",
+                      index < step
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : index === step
+                          ? "border-sky-500 bg-sky-500 text-white ring-4 ring-sky-100"
+                          : "border-slate-200 bg-white text-slate-400",
+                    )}
+                  >
+                    {index === step && (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="onboarding-step-pulse absolute inset-0 rounded-full bg-sky-300/60"
+                        />
+                        <span
+                          aria-hidden="true"
+                          className="onboarding-step-pulse onboarding-step-pulse-delayed absolute inset-0 rounded-full bg-sky-300/45"
+                        />
+                      </>
+                    )}
+                    <span className="relative z-10">
+                      {index < step ? (
+                        <Check className="size-3.5" strokeWidth={3} />
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 min-w-0">
+                    <span
+                      className={cn(
+                        "block text-[13px] font-semibold leading-5",
+                        index === step ? "text-sky-800" : "text-slate-700",
+                      )}
+                    >
+                      {name}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-4 text-slate-500">
+                      {stepDescriptions[index]}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            ))}
+          </nav>
+          <div className="mt-auto rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm shadow-slate-900/[0.03]">
+            <div className="grid size-10 place-items-center rounded-xl bg-sky-50 text-sky-600">
+              <ShieldCheck className="size-4.5" />
+            </div>
+            <p className="mt-3 text-[13px] font-semibold tracking-[-0.01em] text-slate-900">
+              Datamu tetap pribadi
+            </p>
+            <p className="mt-1 text-[13px] leading-6 text-slate-500">
+              Dipakai untuk menyusun acuan kebutuhan gizi profilmu.
+            </p>
+          </div>
+        </aside>
+
+        <section className="min-w-0 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] transition-shadow duration-300 sm:rounded-3xl sm:p-7 lg:col-start-2 xl:p-9">
+        <div className="mb-7 lg:hidden">
+            <div className="mb-3 flex items-center justify-between gap-3 text-[13px] font-semibold text-slate-500">
+              <span>
+                Langkah {step + 1} dari {steps.length}
+              </span>
+              <span className="truncate text-right text-sky-700">
+                {steps[step]}
+              </span>
+            </div>
+            <div
+              aria-label={`Langkah ${step + 1} dari ${steps.length}`}
+              aria-valuemax={steps.length}
+              aria-valuemin={1}
+              aria-valuenow={step + 1}
+              className="h-2 overflow-hidden rounded-full bg-slate-100 shadow-inner"
+              role="progressbar"
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_12px_rgba(14,165,233,.35)] transition-[width] duration-500 ease-out"
+                style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {step === 0 && (
+            <div>
+              <Pill icon={UserRound}>Mari berkenalan</Pill>
+              <h1 className="mt-5 max-w-2xl text-[1.7rem] font-bold leading-[1.2] tracking-[-0.04em] text-slate-900 sm:text-[2.15rem] sm:leading-[1.15]">
+                Ceritakan sedikit tentang dirimu
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-500">
+                Usia dan jenis kelamin menentukan kelompok acuan AKG. Kami
+                gunakan juga aktivitas dan targetmu untuk menyusun profil gizi.
+              </p>
+              <div className="mt-7 w-full">
+                <Input
+                  label="Usia (tahun)"
+                  max={120}
+                  min={13}
+                  onChange={setAge}
+                  placeholder="Contoh: 28"
+                  step={1}
+                  type="number"
+                  value={age}
+                />
+              </div>
+              <p className="mb-3 mt-7 text-[15px] font-semibold tracking-[-0.015em] text-slate-800">
+                Jenis kelamin
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { name: "Pria", icon: UserRound },
+                  { name: "Wanita", icon: UserRound },
+                ].map(({ name, icon }) => (
+                  <ChoiceCard
+                    active={gender === name}
+                    icon={icon}
+                    key={name}
+                    onClick={() => setGender(name)}
+                    title={name}
+                  />
+                ))}
+              </div>
+              {gender === "Wanita" && (
+                <div className="mt-7">
+                  <p className="mb-1 text-[15px] font-semibold tracking-[-0.015em] text-slate-800">
+                    Status kehamilan atau menyusui
+                  </p>
+                  <p className="mb-3 text-[13px] leading-6 text-slate-500">
+                    Dipakai untuk menambahkan acuan AKG sesuai trimester atau
+                    masa menyusui.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      "Tidak ada",
+                      "Trimester 1",
+                      "Trimester 2",
+                      "Trimester 3",
+                      "Menyusui 6 bulan pertama",
+                      "Menyusui 6 bulan kedua",
+                    ].map((item) => (
+                      <button
+                        aria-pressed={status === item}
+                        className={cn(
+                          "group flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
+
+                          status === item
+                            ? "-translate-y-0.5 border-sky-300 bg-gradient-to-r from-sky-50 to-white text-sky-800 shadow-sm shadow-sky-100 ring-1 ring-sky-100"
+                            : "border-slate-200 bg-white text-slate-600 shadow-sm shadow-slate-900/[0.02] hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50/60 hover:text-sky-800 hover:shadow-md hover:shadow-sky-100/70",
+                        )}
+                        key={item}
+                        onClick={() => setStatus(item)}
+                        type="button"
+                      >
+                        {item}
+                        <span
+                          className={cn(
+                            "grid size-4 shrink-0 place-items-center rounded-full border transition",
+                            status === item
+                              ? "border-sky-500 bg-sky-500 text-white"
+                              : "border-slate-300 bg-white text-transparent group-hover:border-sky-300",
+                          )}
+                        >
+                          {status === item && (
+                            <Check className="size-2.5" strokeWidth={3} />
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 1 && (
+            <div>
+              <Pill icon={Activity}>Profil tubuhmu</Pill>
+              <h1 className="mt-5 max-w-2xl text-[1.7rem] font-bold leading-[1.2] tracking-[-0.04em] text-slate-900 sm:text-[2.15rem] sm:leading-[1.15]">
+                Beberapa informasi singkat tentang tubuhmu
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-500">
+                Lengkapi profil tubuh untuk mendapatkan ringkasan kebutuhan
+                harian yang lebih relevan.
+              </p>
+              <div className="mt-7 grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Berat badan (kg)"
+                  max={500}
+                  min={1}
+                  onChange={setWeight}
+                  placeholder="Contoh: 68"
+                  step={0.1}
+                  type="number"
+                  value={weight}
+                />
+                <Input
+                  label="Tinggi badan (cm)"
+                  max={275}
+                  min={30}
+                  onChange={setHeight}
+                  placeholder="Contoh: 172"
+                  step={0.1}
+                  type="number"
+                  value={height}
+                />
+              </div>
+              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-md hover:shadow-sky-200/70 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 size-5 shrink-0 text-white" />
+                  <div>
+                    <p className="text-[15px] font-semibold tracking-[-0.015em] text-white">
+                      Angka referensi, disesuaikan dengan profilmu
+                    </p>
+                    <p className="mt-1.5 text-[13px] leading-6 text-white/90">
+                      AKG merupakan kecukupan rata-rata kelompok, bukan
+                      diagnosis atau pengganti saran tenaga kesehatan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <Pill icon={Dumbbell}>Rutinitasmu</Pill>
+              <h1 className="mt-5 max-w-2xl text-[1.7rem] font-bold leading-[1.2] tracking-[-0.04em] text-slate-900 sm:text-[2.15rem] sm:leading-[1.15]">
+                Seberapa aktif keseharianmu?
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-500">
+                Pilih opsi yang paling menggambarkan aktivitasmu selama
+                seminggu.
+              </p>
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Minim gerak", "Lebih banyak duduk dan jarang berolahraga"],
+                  ["Ringan", "Olahraga ringan 1–3 hari per minggu"],
+                  ["Sedang", "Berolahraga 3–5 hari per minggu"],
+                  ["Sangat aktif", "Olahraga berat 6–7 hari per minggu"],
+                  [
+                    "Aktivitas fisik berat",
+                    "Pekerjaan atau latihan fisik berat",
+                  ],
+                ].map(([title, text]) => (
+                  <ChoiceCard
+                    active={activity === title}
+                    className={
+                      title === "Aktivitas fisik berat" ? "sm:col-span-2" : ""
+                    }
+                    icon={title === "Minim gerak" ? Clock3 : Activity}
+                    key={title}
+                    onClick={() => setActivity(title)}
+                    title={title}
+                    description={text}
+                  />
+                ))}
+              </div>
+              <p className="mb-3 mt-7 text-[15px] font-semibold tracking-[-0.015em] text-slate-800">
+                Apakah kamu rutin latihan di gym?
+              </p>
+              <p className="mb-3 text-[13px] leading-6 text-slate-500">
+                Ini menyesuaikan target protein dewasa. Acuan latihan memakai
+                1,6 g/kg berat badan per hari.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  [true, "Ya, rutin gym"],
+                  [false, "Tidak rutin gym"],
+                ].map(([value, title]) => (
+                  <ChoiceCard
+                    active={isGym === value}
+                    icon={Dumbbell}
+                    key={title}
+                    onClick={() => setIsGym(value)}
+                    title={title}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <Pill icon={Target}>Targetmu</Pill>
+              <h1 className="mt-5 max-w-2xl text-[1.7rem] font-bold leading-[1.2] tracking-[-0.04em] text-slate-900 sm:text-[2.15rem] sm:leading-[1.15]">
+                Apa yang ingin kamu capai?
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] leading-7 text-slate-500">
+                Pilih arah targetmu. Rekomendasi tetap mengacu pada AKG dan
+                dibuat dengan penyesuaian yang bertahap.
+              </p>
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <ChoiceCard
+                  active={goal === "Menurunkan berat badan"}
+                  icon={TrendingUp}
+                  onClick={() => setGoal("Menurunkan berat badan")}
+                  title="Menurunkan berat badan"
+                  description="Penyesuaian energi bertahap, bukan diet ekstrem"
+                />
+                <ChoiceCard
+                  active={goal === "Menjaga berat badan"}
+                  icon={HeartPulse}
+                  onClick={() => setGoal("Menjaga berat badan")}
+                  title="Menjaga berat badan"
+                  description="Pertahankan kebutuhan energi harian"
+                />
+                <ChoiceCard
+                  active={goal === "Menambah berat badan"}
+                  className="sm:col-span-2"
+                  icon={Dumbbell}
+                  onClick={() => setGoal("Menambah berat badan")}
+                  title="Menambah berat badan"
+                  description="Tingkatkan asupan secara seimbang"
+                />
+              </div>
+              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-xl hover:shadow-sky-200/70 sm:flex sm:items-center sm:justify-between sm:p-5">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Acuanmu siap dihitung
+                  </p>
+                  <p className="mt-1.5 text-[14px] leading-6 text-white/90">
+                    Rangkuman AKG menyesuaikan usia, jenis kelamin, dan kondisi
+                    kehamilan atau menyusui.
+                  </p>
+                </div>
+                <Zap className="mt-3 size-6 shrink-0 text-white sm:ml-4 sm:mt-0" />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-5 sm:mt-9 sm:pt-6">
+            <Button
+              disabled={step === 0 || saving}
+              onClick={() => {
+                setNotice("")
+                setStep((current) => Math.max(0, current - 1))
+              }}
+              variant="secondary"
+            >
+              <ArrowLeft className="size-4" /> Kembali
+            </Button>
+            <Button
+              className="min-w-36 bg-gradient-to-r from-sky-500 to-blue-600 px-4 shadow-[0_10px_24px_-12px_rgba(2,132,199,.8)] transition duration-200 hover:-translate-y-0.5 hover:from-sky-600 hover:to-blue-700 hover:shadow-lg hover:shadow-sky-200 sm:px-5"
+              disabled={saving}
+              onClick={() => (step < 3 ? continueStep() : finishOnboarding())}
+            >
+              {saving
+                ? "Menyimpan…"
+                : step === 3
+                  ? "Simpan profil"
+                  : "Lanjutkan"}
+              {step === 3 ? (
+                <Sparkles className="size-4" />
+              ) : (
+                <ArrowRight className="size-4" />
+              )}
+            </Button>
+          </div>
+        </section>
+
+        <div className="lg:sticky lg:top-24 lg:col-start-3">
+          <AKGReferenceCard
+            targets={previewTargets}
+            age={age}
+            dropdownOpensDown={dropdownOpensDown}
+          />
+          <p className="mt-3 px-1 text-xs leading-5 text-slate-400 lg:hidden">
+            Angka acuan penduduk Indonesia. Kebutuhan individu dapat berbeda.
+          </p>
+        </div>
+      </div>
+      {notice && (
+        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
+          <div
+            aria-atomic="true"
+            aria-live="assertive"
+            className="onboarding-toast pointer-events-auto flex items-start gap-3 rounded-2xl border border-rose-200/90 bg-white/95 p-3.5 text-sm text-slate-700 shadow-[0_18px_48px_-20px_rgba(127,29,29,.28)] backdrop-blur-xl sm:p-4"
+            role="alert"
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600">
+              <CircleAlert aria-hidden="true" className="size-5" />
+            </span>
+            <p className="min-w-0 flex-1 pt-1 text-[13px] font-medium leading-5 sm:text-sm">
+              {notice}
+            </p>
+            <button
+              aria-label="Tutup notifikasi"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
+              onClick={() => setNotice("")}
+              type="button"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
+/*
+function OnboardingLegacy({ navigate }) {
   const { user } = useAuth()
 
   const [step, setStep] = useState(0)
@@ -885,97 +1784,6 @@ function Onboarding({ navigate }) {
   const [notice, setNotice] = useState("")
 
   const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
-
-  useEffect(() => {
-    api("/profile")
-
-      .then((profile) => {
-        if (profile.age) setAge(String(profile.age))
-
-        if (profile.weight_kg) setWeight(String(profile.weight_kg))
-
-        if (profile.height_cm) setHeight(String(profile.height_cm))
-
-        if (profile.gender) setGender(profile.gender)
-
-        if (profile.activity) setActivity(profile.activity)
-
-        if (profile.goal) setGoal(profile.goal)
-
-        if (profile.pregnancy_status) setStatus(profile.pregnancy_status)
-      })
-
-      .catch((error) => setNotice(error.message))
-  }, [])
-
-  const finishOnboarding = async () => {
-    if (!age || !weight || !height) {
-      setNotice("Lengkapi usia, berat badan, dan tinggi badan terlebih dahulu.")
-
-      return
-    }
-
-    setSaving(true)
-
-    setNotice("")
-
-    try {
-      await api("/profile", {
-        method: "PUT",
-
-        body: JSON.stringify({
-          full_name: user?.user_metadata?.full_name || "",
-
-          age: Number(age),
-
-          gender,
-
-          pregnancy_status: gender === "Wanita" ? status : null,
-
-          weight_kg: Number(weight),
-
-          height_cm: Number(height),
-
-          activity,
-
-          goal,
-        }),
-      })
-
-      navigate("/dashboard", { replace: true })
-    } catch (error) {
-      setNotice(error.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-          <Brand />
-          <button
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800"
-            onClick={async () => {
-              await supabase?.auth.signOut()
-
-              navigate("/")
-            }}
-          >
-            Simpan dan keluar <X className="size-4" />
-          </button>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 md:grid-cols-[220px_1fr] md:py-12 lg:gap-16">
-        <aside className="hidden md:block">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-slate-400">
-            Profilmu
-          </p>
-          <div className="mt-6 space-y-1">
-            {steps.map((name, index) => (
-              <div
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold",
 
@@ -1055,7 +1863,7 @@ function Onboarding({ navigate }) {
                 {["Pria", "Wanita"].map((item) => (
                   <ChoiceCard
                     active={gender === item}
-                    icon={CircleUserRound}
+                    icon={UserRound}
                     key={item}
                     onClick={() => setGender(item)}
                     title={item}
@@ -1265,6 +2073,8 @@ function Onboarding({ navigate }) {
   )
 }
 
+*/
+
 function AppShell({ children, active, navigate }) {
   const { user } = useAuth()
 
@@ -1442,40 +2252,39 @@ function Dashboard({ navigate }) {
   const macros = [
     [
       "Kalori",
-
       totals.calories || 0,
-
       targets.calories || 2100,
-
       "kcal",
-
       "bg-sky-500",
     ],
-
     [
       "Protein",
-
       totals.protein_g || 0,
-
       targets.protein_g || 100,
-
       "g",
-
       "bg-violet-500",
     ],
-
     ["Lemak", totals.fat_g || 0, targets.fat_g || 70, "g", "bg-amber-400"],
-
     [
       "Karbohidrat",
-
       totals.carbs_g || 0,
-
       targets.carbs_g || 260,
-
       "g",
-
       "bg-emerald-500",
+    ],
+    [
+      "Gula total",
+      totals.sugar_g || 0,
+      targets.sugar_g || 50,
+      "g",
+      "bg-rose-400",
+    ],
+    [
+      "Natrium",
+      totals.sodium_mg || 0,
+      targets.sodium_mg || 2000,
+      "mg",
+      "bg-orange-500",
     ],
   ].map(([name, current, target, unit, color]) => ({
     name,
@@ -1483,6 +2292,8 @@ function Dashboard({ navigate }) {
     current: Number(current).toFixed(0),
 
     target: `${target} ${unit}`,
+
+    unit,
 
     pct: `${Math.min(100, Math.round((current / target) * 100))}%`,
 
@@ -1603,7 +2414,7 @@ function Dashboard({ navigate }) {
                       <p className="text-xs text-slate-400">
                         <strong className="text-sm text-slate-800">
                           {item.current}
-                          {item.name === "Kalori" ? "" : "g"}
+                          {item.name === "Kalori" ? "" : item.unit}
                         </strong>{" "}
                         / {item.target}
                       </p>
@@ -2758,6 +3569,8 @@ function MealHistory({ navigate }) {
                 {meal.calories} kcal
                 <p className="text-xs font-normal text-slate-400">
                   P {meal.protein_g}g · K {meal.carbs_g}g · L {meal.fat_g}g
+                  <br />
+                  Gula {meal.sugar_g ?? 0}g · Natrium {meal.sodium_mg ?? 0}mg
                 </p>
               </div>
             </article>

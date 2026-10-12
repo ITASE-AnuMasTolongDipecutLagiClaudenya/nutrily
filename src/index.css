@@ -66,6 +66,47 @@ button {
   animation: scan 1.8s ease-in-out infinite;
 }
 
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.onboarding-toast {
+  animation: toast-enter 180ms ease-out both;
+}
+
+@keyframes onboarding-step-pulse {
+  from {
+    opacity: 0.85;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+.onboarding-step-pulse {
+  animation: onboarding-step-pulse 1.5s ease-out infinite;
+}
+
+.onboarding-step-pulse-delayed {
+  animation-delay: -0.75s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-toast,
+  .onboarding-step-pulse {
+    animation: none;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
