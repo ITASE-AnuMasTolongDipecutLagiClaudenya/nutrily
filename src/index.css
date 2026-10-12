@@ -3,6 +3,11 @@
 
 @theme {
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --color-chart-1: #0ea5e9;
+  --color-chart-2: #8b5cf6;
+  --color-chart-3: #10b981;
+  --color-chart-4: #f59e0b;
+  --color-chart-5: #f43f5e;
 }
 
 .font-poppins {
@@ -33,6 +38,30 @@ body {
   color: #0f172a;
   font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+.calorie-chart-scroll {
+  scrollbar-color: #38bdf8 #e2e8f0;
+  scrollbar-width: thin;
+}
+
+.calorie-chart-scroll::-webkit-scrollbar {
+  height: 20px;
+}
+
+.calorie-chart-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+
+.calorie-chart-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid #f1f5f9;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
+}
+
+.calorie-chart-scroll::-webkit-scrollbar-thumb:hover {
+  background: #0369a1;
 }
 
 button,

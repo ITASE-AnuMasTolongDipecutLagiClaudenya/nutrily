@@ -2,7 +2,12 @@ import { ChevronDown, LogOut, UserRound } from "lucide-react"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
-export default function ProfileDropdown({ data, onSignOut, className = "" }) {
+export default function ProfileDropdown({
+  data,
+  onProfile,
+  onSignOut,
+  className = "",
+}) {
   const initials = (data.name || data.email || "N")
     .split(/[ @]/)
     .filter(Boolean)
@@ -45,22 +50,17 @@ export default function ProfileDropdown({ data, onSignOut, className = "" }) {
       </summary>
 
       <div className="absolute right-0 top-full z-[60] mt-2 w-64 rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-sm">
-        <div className="flex min-w-0 items-center gap-3 rounded-xl p-3 sm:hidden">
-          <UserRound className="size-4 shrink-0 text-sky-600" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {data.name}
-            </p>
-            <p className="truncate text-xs text-slate-500">{data.email}</p>
-          </div>
-        </div>
-        <div className="hidden min-w-0 rounded-xl p-3 sm:block">
-          <p className="truncate text-sm font-semibold text-slate-900">
-            {data.name}
-          </p>
-          <p className="truncate text-xs text-slate-500">{data.email}</p>
-        </div>
-        <div aria-hidden="true" className="my-1 h-px bg-slate-100" />
+        <button
+          className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-sm font-medium text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
+          onClick={(event) => {
+            event.currentTarget.closest("details").open = false
+            onProfile()
+          }}
+          type="button"
+        >
+          <UserRound aria-hidden="true" className="size-4 text-sky-600" />
+          Profil
+        </button>
         <button
           className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-sm font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
           onClick={(event) => {

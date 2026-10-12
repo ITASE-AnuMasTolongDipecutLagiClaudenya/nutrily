@@ -23,10 +23,8 @@ import {
   Flame,
   ExternalLink,
   HeartPulse,
-  History,
   Leaf,
   List,
-  LogOut,
   Menu,
   MessageCircleMore,
   Mic,
@@ -76,6 +74,12 @@ import CtaSection from "./components/CtaSection"
 import AuthGridBackground from "./components/AuthGridBackground"
 
 import ProfileDropdown from "./components/ui/profile-dropdown"
+
+import CalorieChart from "./components/ui/calorie-chart"
+
+import BarRaceChart from "./components/ui/bar-race-chart.tsx"
+
+import BasicSteps from "./components/ui/steps"
 
 import Turnstile from "./components/Turnstile"
 
@@ -245,9 +249,7 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
         </span>
         <div>
           <h2 className="text-sm font-bold text-slate-900">
-            {targets
-              ? "Estimasi kebutuhan personal"
-              : "Acuan AKG harian"}
+            {targets ? "Estimasi kebutuhan personal" : "Acuan AKG harian"}
           </h2>
           <p className="mt-0.5 text-xs text-slate-500">
             Permenkes RI No. 28 Tahun 2019
@@ -283,8 +285,8 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
             ))}
           </dl>
           <p className="mt-3 text-[13px] leading-6 text-slate-500">
-            Kelompok usia {age} tahun. AKG resmi menjadi dasar; faktor
-            tubuh dan aktivitas membentuk estimasi personal.
+            Kelompok usia {age} tahun. AKG resmi menjadi dasar; faktor tubuh dan
+            aktivitas membentuk estimasi personal.
           </p>
         </>
       ) : (
@@ -349,7 +351,9 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
             target="_blank"
           >
             <span>
-              <span className="block font-semibold">ISSN · Protein & olahraga</span>
+              <span className="block font-semibold">
+                ISSN · Protein & olahraga
+              </span>
               <span className="block text-[9px] leading-3 text-slate-500">
                 Acuan 1,4–2,0 g/kg/hari; estimasi gym memakai 1,6 g/kg
               </span>
@@ -1315,6 +1319,7 @@ function Onboarding({ navigate }) {
               email: user?.email || "",
               avatar: user?.user_metadata?.avatar_url || "",
             }}
+            onProfile={() => navigate("/onboarding")}
             onSignOut={async () => {
               await supabase?.auth.signOut()
               navigate("/")
@@ -1418,28 +1423,17 @@ function Onboarding({ navigate }) {
         </aside>
 
         <section className="min-w-0 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] transition-shadow duration-300 sm:rounded-3xl sm:p-7 lg:col-start-2 xl:p-9">
-        <div className="mb-7 lg:hidden">
-            <div className="mb-3 flex items-center justify-between gap-3 text-[13px] font-semibold text-slate-500">
-              <span>
-                Langkah {step + 1} dari {steps.length}
-              </span>
-              <span className="truncate text-right text-sky-700">
-                {steps[step]}
-              </span>
-            </div>
-            <div
-              aria-label={`Langkah ${step + 1} dari ${steps.length}`}
-              aria-valuemax={steps.length}
-              aria-valuemin={1}
-              aria-valuenow={step + 1}
-              className="h-2 overflow-hidden rounded-full bg-slate-100 shadow-inner"
-              role="progressbar"
-            >
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_12px_rgba(14,165,233,.35)] transition-[width] duration-500 ease-out"
-                style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          <div className="mb-7 lg:hidden">
+            <nav aria-label="Langkah pengisian profil">
+              <BasicSteps
+                currentStep={step}
+                onStepChange={(nextStep) => {
+                  setNotice("")
+                  setStep(nextStep)
+                }}
+                steps={steps}
               />
-            </div>
+            </nav>
           </div>
 
           {step === 0 && (
@@ -2077,18 +2071,7 @@ function OnboardingLegacy({ navigate }) {
 
 function AppShell({ children, active, navigate }) {
   const { user } = useAuth()
-
-  const initials = (user?.user_metadata?.full_name || user?.email || "N")
-
-    .split(/[ @]/)
-
-    .filter(Boolean)
-
-    .slice(0, 2)
-
-    .map((part) => part[0].toUpperCase())
-
-    .join("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const items = [
     ["dashboard", "Ringkasan", Activity],
@@ -2102,50 +2085,79 @@ function AppShell({ children, active, navigate }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-100 bg-white p-5 lg:flex">
-        <div className="px-2 py-2">
-          <Brand />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 transition-[width] duration-200 lg:flex",
+          sidebarCollapsed ? "w-20" : "w-64",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center py-2",
+            sidebarCollapsed
+              ? "flex-col justify-center gap-2"
+              : "justify-between px-2",
+          )}
+        >
+          <Brand compact={sidebarCollapsed} />
+          <button
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            title={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+            type="button"
+          >
+            {sidebarCollapsed ? (
+              <ArrowRight className="size-4" />
+            ) : (
+              <ArrowLeft className="size-4" />
+            )}
+          </button>
         </div>
         <nav className="mt-8 space-y-1.5">
           {items.map(([screen, label, Icon]) => (
             <button
+              aria-label={sidebarCollapsed ? label : undefined}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition",
+                "flex w-full items-center rounded-xl py-3 text-sm font-semibold transition",
 
+                sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3",
                 active === screen
                   ? "bg-sky-50 text-sky-600"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
               )}
               key={screen}
               onClick={() => navigate(screen)}
+              title={sidebarCollapsed ? label : undefined}
             >
               <Icon className="size-5" />
-              {label}
+              {!sidebarCollapsed && label}
             </button>
           ))}
         </nav>
-        <div className="mt-auto">
-          <div className="mb-4 rounded-2xl bg-slate-900 p-4 text-white">
-            <Sparkles className="size-5 text-sky-300" />
-            <p className="mt-3 text-sm font-bold">Catat asupanmu</p>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
-              Pantau perkembangan gizimu setiap hari.
-            </p>
-          </div>
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-500 hover:bg-slate-50"
-            onClick={async () => {
-              await supabase?.auth.signOut()
-
-              navigate("/login")
-            }}
-          >
-            <LogOut className="size-5" /> Keluar
-          </button>
+        <div
+          className={cn(
+            "mt-auto rounded-2xl bg-slate-900 text-white",
+            sidebarCollapsed
+              ? "grid size-10 place-items-center self-center"
+              : "p-4",
+          )}
+          title={sidebarCollapsed ? "Catat asupanmu" : undefined}
+        >
+          <Sparkles className="size-5 text-sky-300" />
+          {!sidebarCollapsed && (
+            <>
+              <p className="mt-3 text-sm font-bold">Catat asupanmu</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                Pantau perkembangan gizimu setiap hari.
+              </p>
+            </>
+          )}
         </div>
       </aside>
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white/90 px-5 backdrop-blur sm:px-8">
+      <div className={sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}>
+        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8">
           <div className="lg:hidden">
             <Brand compact />
           </div>
@@ -2166,49 +2178,21 @@ function AppShell({ children, active, navigate }) {
                 "teman"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              aria-label="Riwayat makan"
-              onClick={() => navigate("/meals")}
-              className="relative grid size-10 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
-            >
-              <History className="size-4.5" />
-            </button>
-            <button
-              aria-label="Keluar dari akun"
-              className="grid size-10 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
-              onClick={async () => {
-                await supabase?.auth.signOut()
-
-                navigate("/login")
-              }}
-            >
-              <LogOut className="size-4" />
-            </button>
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
-              {user?.user_metadata?.avatar_url ? (
-                <img
-                  alt="Foto profil pengguna"
-                  className="size-10 rounded-xl object-cover"
-                  src={user.user_metadata.avatar_url}
-                />
-              ) : (
-                <div
-                  aria-label="Inisial pengguna"
-                  className="grid size-10 place-items-center rounded-xl bg-sky-100 text-sm font-bold text-sky-700"
-                >
-                  {initials}
-                </div>
-              )}
-              <div className="hidden sm:block">
-                <p className="text-sm font-bold text-slate-800">
-                  {user?.user_metadata?.full_name || user?.email}
-                </p>
-                <p className="text-xs text-slate-400">Akun Nutrily</p>
-              </div>
-              <ChevronDown className="hidden size-4 text-slate-400 sm:block" />
-            </div>
-          </div>
+          <ProfileDropdown
+            data={{
+              name:
+                user?.user_metadata?.full_name ||
+                user?.email?.split("@")[0] ||
+                "Profil Nutrily",
+              email: user?.email || "",
+              avatar: user?.user_metadata?.avatar_url || "",
+            }}
+            onProfile={() => navigate("/onboarding")}
+            onSignOut={async () => {
+              await supabase?.auth.signOut()
+              navigate("/login")
+            }}
+          />
         </header>
         {children}
       </div>
@@ -2236,14 +2220,49 @@ function Dashboard({ navigate }) {
   const [summary, setSummary] = useState(null)
 
   const [loadError, setLoadError] = useState("")
+  const [featureLoadError, setFeatureLoadError] = useState("")
+  const [featureUsage, setFeatureUsage] = useState({
+    label: 0,
+    receipt: 0,
+    chatbot: 0,
+  })
+  const { user } = useAuth()
 
   useEffect(() => {
+    let active = true
+    const onFeatureUsage = (event) => {
+      if (event.detail?.userId !== user?.id) return
+      api("/features")
+        .then((usage) => {
+          if (!active) return
+          setFeatureUsage(usage)
+          setFeatureLoadError("")
+        })
+        .catch((error) => active && setFeatureLoadError(error.message))
+    }
+    window.addEventListener("nutrily:feature-usage", onFeatureUsage)
+    return () => {
+      active = false
+      window.removeEventListener("nutrily:feature-usage", onFeatureUsage)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    let active = true
     api("/dashboard")
-
-      .then(setSummary)
-
-      .catch((error) => setLoadError(error.message))
-  }, [])
+      .then((result) => active && setSummary(result))
+      .catch((error) => active && setLoadError(error.message))
+    api("/features")
+      .then((usage) => {
+        if (!active) return
+        setFeatureUsage(usage)
+        setFeatureLoadError("")
+      })
+      .catch((error) => active && setFeatureLoadError(error.message))
+    return () => {
+      active = false
+    }
+  }, [user?.id])
 
   const totals = summary?.totals || {}
 
@@ -2307,6 +2326,9 @@ function Dashboard({ navigate }) {
 
     { name: "Karbohidrat", value: totals.carbs_g, color: "#10B981" },
   ].filter(({ value }) => value > 0)
+  const donutData = chartData.length
+    ? chartData
+    : [{ name: "Belum ada data", value: 1, color: "#e2e8f0" }]
 
   return (
     <AppShell active="dashboard" navigate={navigate}>
@@ -2335,7 +2357,7 @@ function Dashboard({ navigate }) {
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.55fr_.85fr]">
-          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
+          <section className="h-fit self-start rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
@@ -2355,14 +2377,14 @@ function Dashboard({ navigate }) {
                   <PieChart>
                     <Pie
                       cornerRadius={8}
-                      data={chartData}
+                      data={donutData}
                       dataKey="value"
                       innerRadius={72}
                       outerRadius={96}
                       paddingAngle={3}
                       stroke="none"
                     >
-                      {chartData.map((entry) => (
+                      {donutData.map((entry) => (
                         <Cell fill={entry.color} key={entry.name} />
                       ))}
                     </Pie>
@@ -2469,6 +2491,8 @@ function Dashboard({ navigate }) {
           </section>
         </div>
 
+        <CalorieChart target={targets.calories || 2100} />
+
         {loadError && (
           <p
             role="alert"
@@ -2477,15 +2501,15 @@ function Dashboard({ navigate }) {
             {loadError}
           </p>
         )}
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_.95fr]">
-          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
+        <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.05fr_.95fr]">
+          <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Riwayat tersimpan
+                  Riwayat Tampilan
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Makanan yang tersimpan dari hasil pemindaian
+                  Tiga catatan makanan terbaru
                 </p>
               </div>
               <button
@@ -2496,17 +2520,17 @@ function Dashboard({ navigate }) {
               </button>
             </div>
             <div className="mt-5 divide-y divide-slate-100">
-              {(summary?.meals || []).slice(0, 5).map((meal) => (
+              {(summary?.meals || []).slice(0, 3).map((meal) => (
                 <button
-                  className="flex w-full items-center gap-3 py-4 text-left first:pt-1 last:pb-0"
+                  className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 first:pt-1 last:pb-0"
                   key={meal.id}
                   onClick={() => navigate("/meals")}
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
-                    <Utensils className="size-4.5" />
+                    <Utensils className="size-4.5 transition-colors group-hover:text-sky-600" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-slate-700">
+                    <span className="block truncate text-sm font-bold text-slate-700 transition-colors group-hover:text-sky-700">
                       {meal.name}
                     </span>
                     <span className="mt-1 block text-xs text-slate-400">
@@ -2524,50 +2548,49 @@ function Dashboard({ navigate }) {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">
-            <h2 className="text-lg font-bold text-slate-900">Aksi cepat</h2>
+          <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-lg font-bold text-slate-900">
+              Fitur yang Sering Dipakai
+            </h2>
             <p className="mt-1 text-xs text-slate-400">
-              Apa yang ingin kamu lakukan?
+              {featureLoadError
+                ? "Jalankan migrasi statistik fitur untuk memuat data"
+                : "Diurutkan berdasarkan pemakaian"}
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button
-                className="group rounded-2xl border border-sky-100 bg-sky-50 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-100"
-                onClick={() => navigate("scanner")}
-              >
-                <span className="grid size-11 place-items-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200">
-                  <ScanLine className="size-5" />
-                </span>
-                <span className="mt-5 flex items-center justify-between">
-                  <span>
-                    <span className="block text-sm font-bold text-slate-800">
-                      Pindai makanan
-                    </span>
-                    <span className="mt-1 block text-xs text-slate-500">
-                      Baca label gizi
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 text-sky-500 transition group-hover:translate-x-1" />
-                </span>
-              </button>
-              <button
-                className="group rounded-2xl border border-violet-100 bg-violet-50 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-100"
-                onClick={() => navigate("chat")}
-              >
-                <span className="grid size-11 place-items-center rounded-xl bg-violet-500 text-white shadow-lg shadow-violet-200">
-                  <Bot className="size-5" />
-                </span>
-                <span className="mt-5 flex items-center justify-between">
-                  <span>
-                    <span className="block text-sm font-bold text-slate-800">
-                      Tanya AI
-                    </span>
-                    <span className="mt-1 block text-xs text-slate-500">
-                      Dapatkan panduan personal
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 text-violet-500 transition group-hover:translate-x-1" />
-                </span>
-              </button>
+            <div className="mt-4">
+              <BarRaceChart
+                topN={3}
+                caption="Jumlah pemakaian"
+                data={[
+                  {
+                    id: "label",
+                    label: "Scan label produk",
+                    value: featureUsage.label,
+                    color: 1,
+                    icon: <ScanLine className="size-4 shrink-0 text-sky-600" />,
+                  },
+                  {
+                    id: "receipt",
+                    label: "Scan struk",
+                    value: featureUsage.receipt,
+                    color: 3,
+                    icon: (
+                      <ReceiptText className="size-4 shrink-0 text-emerald-600" />
+                    ),
+                  },
+                  {
+                    id: "chatbot",
+                    label: "Chatbot",
+                    value: featureUsage.chatbot,
+                    color: 2,
+                    icon: <Bot className="size-4 shrink-0 text-violet-600" />,
+                  },
+                ]}
+                formatValue={(value) => `${value} kali`}
+                onItemClick={({ id }) =>
+                  navigate(id === "chatbot" ? "chat" : "scanner")
+                }
+              />
             </div>
           </section>
         </div>

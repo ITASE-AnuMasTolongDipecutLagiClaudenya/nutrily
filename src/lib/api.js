@@ -1,4 +1,5 @@
 import { supabase } from "./supabase"
+import { featureFromRequest } from "./feature-usage"
 
 const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080"
 
@@ -20,6 +21,10 @@ export async function api(path, options = {}) {
   if (!data.session)
     throw new Error("Sesi login berakhir. Silakan masuk kembali.")
 
+  const feature =
+    options.method?.toUpperCase() === "GET"
+      ? null
+      : featureFromRequest(path, options.body)
   const response = await fetch(`${baseUrl}/api${path}`, {
     ...options,
     headers: {
@@ -33,5 +38,12 @@ export async function api(path, options = {}) {
   const result = await response.json().catch(() => ({}))
   if (!response.ok)
     throw new Error(result.error || `API gagal (${response.status}).`)
+  if (feature) {
+    window.dispatchEvent(
+      new CustomEvent("nutrily:feature-usage", {
+        detail: { userId: data.session.user.id, feature },
+      }),
+    )
+  }
   return result
 }
