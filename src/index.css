@@ -131,7 +131,8 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .onboarding-toast,
-  .onboarding-step-pulse {
+  .onboarding-step-pulse,
+  .scan-line {
     animation: none;
   }
 }

@@ -85,6 +85,8 @@ import Turnstile from "./components/Turnstile"
 
 import GlowCard from "./components/GlowCard"
 
+import ScannerFlow from "./components/ScannerFlow"
+
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
 function Button({
@@ -2069,7 +2071,14 @@ function OnboardingLegacy({ navigate }) {
 
 */
 
-function AppShell({ children, active, navigate }) {
+function AppShell({
+  children,
+  active,
+  navigate,
+  minimal = false,
+  scannerBack = false,
+  camera = false,
+}) {
   const { user } = useAuth()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -2085,133 +2094,177 @@ function AppShell({ children, active, navigate }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 transition-[width] duration-200 lg:flex",
-          sidebarCollapsed ? "w-20" : "w-64",
-        )}
-      >
-        <div
+      {!minimal && (
+        <aside
           className={cn(
-            "flex items-center py-2",
-            sidebarCollapsed
-              ? "flex-col justify-center gap-2"
-              : "justify-between px-2",
+            "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 transition-[width] duration-200 lg:flex",
+            sidebarCollapsed ? "w-20" : "w-64",
           )}
         >
-          <Brand compact={sidebarCollapsed} />
-          <button
-            aria-expanded={!sidebarCollapsed}
-            aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
-            className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-            title={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
-            type="button"
-          >
-            {sidebarCollapsed ? (
-              <ArrowRight className="size-4" />
-            ) : (
-              <ArrowLeft className="size-4" />
+          <div
+            className={cn(
+              "flex items-center py-2",
+              sidebarCollapsed
+                ? "flex-col justify-center gap-2"
+                : "justify-between px-2",
             )}
-          </button>
-        </div>
-        <nav className="mt-8 space-y-1.5">
+          >
+            <Brand compact={sidebarCollapsed} />
+            <button
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+              className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              title={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+              type="button"
+            >
+              {sidebarCollapsed ? (
+                <ArrowRight className="size-4" />
+              ) : (
+                <ArrowLeft className="size-4" />
+              )}
+            </button>
+          </div>
+          <nav className="mt-8 space-y-1.5">
+            {items.map(([screen, label, Icon]) => (
+              <button
+                aria-label={sidebarCollapsed ? label : undefined}
+                className={cn(
+                  "flex w-full items-center rounded-xl py-3 text-sm font-semibold transition",
+
+                  sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3",
+                  active === screen
+                    ? "bg-sky-50 text-sky-600"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
+                )}
+                key={screen}
+                onClick={() => navigate(screen)}
+                title={sidebarCollapsed ? label : undefined}
+              >
+                <Icon className="size-5" />
+                {!sidebarCollapsed && label}
+              </button>
+            ))}
+          </nav>
+          <div
+            className={cn(
+              "mt-auto rounded-2xl bg-slate-900 text-white",
+              sidebarCollapsed
+                ? "grid size-10 place-items-center self-center"
+                : "p-4",
+            )}
+            title={sidebarCollapsed ? "Catat asupanmu" : undefined}
+          >
+            <Sparkles className="size-5 text-sky-300" />
+            {!sidebarCollapsed && (
+              <>
+                <p className="mt-3 text-sm font-bold">Catat asupanmu</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Pantau perkembangan gizimu setiap hari.
+                </p>
+              </>
+            )}
+          </div>
+        </aside>
+      )}
+      <div
+        className={minimal ? "" : sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}
+      >
+        {!camera && (
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8">
+            {minimal ? (
+              <>
+                <Brand />
+                {scannerBack && (
+                  <button
+                    className="absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-700 sm:gap-2 sm:px-3 sm:text-sm"
+                    onClick={() => navigate("/scanner")}
+                    type="button"
+                  >
+                    <ArrowLeft className="size-4" />
+                    <span className="hidden sm:inline">
+                      Kembali ke pemindai
+                    </span>
+                    <span className="sm:hidden">Pemindai</span>
+                  </button>
+                )}
+                <ProfileDropdown
+                  data={{
+                    name:
+                      user?.user_metadata?.full_name ||
+                      user?.email?.split("@")[0] ||
+                      "Profil Nutrily",
+                    email: user?.email || "",
+                    avatar: user?.user_metadata?.avatar_url || "",
+                  }}
+                  onProfile={() => navigate("/onboarding")}
+                  onSignOut={async () => {
+                    await supabase?.auth.signOut()
+                    navigate("/login")
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <div className="lg:hidden">
+                  <Brand compact />
+                </div>
+                <div className="hidden lg:block">
+                  <p className="text-xs font-medium text-slate-400">
+                    {new Date().toLocaleDateString("id-ID", {
+                      weekday: "long",
+
+                      day: "numeric",
+
+                      month: "long",
+                    })}
+                  </p>
+                  <p className="mt-0.5 font-bold text-slate-800">
+                    Selamat pagi,{" "}
+                    {user?.user_metadata?.full_name?.split(" ")[0] ||
+                      user?.email?.split("@")[0] ||
+                      "teman"}
+                  </p>
+                </div>
+                <ProfileDropdown
+                  data={{
+                    name:
+                      user?.user_metadata?.full_name ||
+                      user?.email?.split("@")[0] ||
+                      "Profil Nutrily",
+                    email: user?.email || "",
+                    avatar: user?.user_metadata?.avatar_url || "",
+                  }}
+                  onProfile={() => navigate("/onboarding")}
+                  onSignOut={async () => {
+                    await supabase?.auth.signOut()
+                    navigate("/login")
+                  }}
+                />
+              </>
+            )}
+          </header>
+        )}
+        {children}
+      </div>
+      {!minimal && (
+        <nav className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-around rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-2xl shadow-slate-300/70 backdrop-blur lg:hidden">
           {items.map(([screen, label, Icon]) => (
             <button
-              aria-label={sidebarCollapsed ? label : undefined}
               className={cn(
-                "flex w-full items-center rounded-xl py-3 text-sm font-semibold transition",
+                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold",
 
-                sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3",
-                active === screen
-                  ? "bg-sky-50 text-sky-600"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
+                active === screen ? "bg-sky-50 text-sky-600" : "text-slate-400",
               )}
               key={screen}
               onClick={() => navigate(screen)}
-              title={sidebarCollapsed ? label : undefined}
             >
               <Icon className="size-5" />
-              {!sidebarCollapsed && label}
+              {label.split(" ")[0]}
             </button>
           ))}
         </nav>
-        <div
-          className={cn(
-            "mt-auto rounded-2xl bg-slate-900 text-white",
-            sidebarCollapsed
-              ? "grid size-10 place-items-center self-center"
-              : "p-4",
-          )}
-          title={sidebarCollapsed ? "Catat asupanmu" : undefined}
-        >
-          <Sparkles className="size-5 text-sky-300" />
-          {!sidebarCollapsed && (
-            <>
-              <p className="mt-3 text-sm font-bold">Catat asupanmu</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
-                Pantau perkembangan gizimu setiap hari.
-              </p>
-            </>
-          )}
-        </div>
-      </aside>
-      <div className={sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}>
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8">
-          <div className="lg:hidden">
-            <Brand compact />
-          </div>
-          <div className="hidden lg:block">
-            <p className="text-xs font-medium text-slate-400">
-              {new Date().toLocaleDateString("id-ID", {
-                weekday: "long",
-
-                day: "numeric",
-
-                month: "long",
-              })}
-            </p>
-            <p className="mt-0.5 font-bold text-slate-800">
-              Selamat pagi,{" "}
-              {user?.user_metadata?.full_name?.split(" ")[0] ||
-                user?.email?.split("@")[0] ||
-                "teman"}
-            </p>
-          </div>
-          <ProfileDropdown
-            data={{
-              name:
-                user?.user_metadata?.full_name ||
-                user?.email?.split("@")[0] ||
-                "Profil Nutrily",
-              email: user?.email || "",
-              avatar: user?.user_metadata?.avatar_url || "",
-            }}
-            onProfile={() => navigate("/onboarding")}
-            onSignOut={async () => {
-              await supabase?.auth.signOut()
-              navigate("/login")
-            }}
-          />
-        </header>
-        {children}
-      </div>
-      <nav className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-around rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-2xl shadow-slate-300/70 backdrop-blur lg:hidden">
-        {items.map(([screen, label, Icon]) => (
-          <button
-            className={cn(
-              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold",
-
-              active === screen ? "bg-sky-50 text-sky-600" : "text-slate-400",
-            )}
-            key={screen}
-            onClick={() => navigate(screen)}
-          >
-            <Icon className="size-5" />
-            {label.split(" ")[0]}
-          </button>
-        ))}
-      </nav>
+      )}
     </div>
   )
 }
@@ -2599,7 +2652,7 @@ function Dashboard({ navigate }) {
   )
 }
 
-function Scanner({ navigate }) {
+function LegacyScanner({ navigate }) {
   const [scanState, setScanState] = useState("ready")
 
   const [scanMode, setScanMode] = useState("label")
@@ -3240,6 +3293,24 @@ function Scanner({ navigate }) {
   )
 }
 
+function Scanner({ navigate }) {
+  const { pathname } = useLocation()
+  const isScannerHome = pathname === "/scanner"
+  const isCamera =
+    pathname === "/scanner/receipt" || pathname === "/scanner/label"
+  return (
+    <AppShell
+      active="scanner"
+      minimal={!isScannerHome}
+      scannerBack={!isScannerHome && !isCamera}
+      camera={isCamera}
+      navigate={navigate}
+    >
+      <ScannerFlow navigate={navigate} />
+    </AppShell>
+  )
+}
+
 function Chat({ navigate }) {
   const [message, setMessage] = useState("")
 
@@ -3814,6 +3885,30 @@ export default function App() {
           </ProtectedRoute>
         }
         path="/scanner"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <Scanner navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/scanner/:mode"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <Scanner navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/scanner/:mode/confirm"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <Scanner navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/scanner/summary/:sessionId"
       />
       <Route
         element={
