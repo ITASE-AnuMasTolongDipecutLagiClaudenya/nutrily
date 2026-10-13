@@ -442,20 +442,29 @@ function ScannerFlow({ navigate }) {
         index += 1
       ) {
         const item = saved.items[index]
+        const nutrition = Object.fromEntries(
+          [
+            "calories",
+            "protein_g",
+            "carbs_g",
+            "fat_g",
+            "sugar_g",
+            "sodium_mg",
+          ]
+            .map((key) => [key, item[key]])
+            .filter(
+              ([, value]) =>
+                value != null &&
+                Number.isFinite(Number(value)) &&
+                Number(value) >= 0,
+            )
+            .map(([key, value]) => [key, Number(value)]),
+        )
         await api("/meals", {
           method: "POST",
           body: JSON.stringify({
             name: item.name || "Hasil pemindaian",
-            calories: Number(item.calories) || 0,
-            protein_g: Number(item.protein_g) || 0,
-            carbs_g: Number(item.carbs_g) || 0,
-            fat_g: Number(item.fat_g) || 0,
-            ...(item.sugar_g != null
-              ? { sugar_g: Number(item.sugar_g) || 0 }
-              : {}),
-            ...(item.sodium_mg != null
-              ? { sodium_mg: Number(item.sodium_mg) || 0 }
-              : {}),
+            ...nutrition,
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
           }),
         })
@@ -606,6 +615,15 @@ function ScannerFlow({ navigate }) {
                             <Trash2 className="size-4" />
                           </button>
                         </div>
+                        {item.nutrition_source && (
+                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                            {item.nutrition_source === "catalog"
+                              ? "Dari katalog gizi"
+                              : item.nutrition_source === "label"
+                                ? "Dari label foto"
+                                : "Estimasi AI"}
+                          </p>
+                        )}
                         {item.category && (
                           <p className="mt-2 text-xs font-semibold capitalize text-emerald-700">
                             {item.category}
