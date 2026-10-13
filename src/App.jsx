@@ -287,16 +287,16 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
               <span className="text-sm font-semibold">kkal</span>
             </p>
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-0">
+          <dl className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1 xl:gap-0">
             {nutrients.map(([label, amount, unit]) => (
               <div
-                className="rounded-lg bg-white/75 px-2.5 py-2.5 transition-colors hover:bg-white lg:flex lg:items-center lg:justify-between lg:rounded-none lg:border-b lg:border-sky-100 lg:bg-transparent lg:px-1"
+                className="rounded-lg bg-white/75 px-2.5 py-2.5 transition-colors hover:bg-white xl:flex xl:items-center xl:justify-between xl:rounded-none xl:border-b xl:border-sky-100 xl:bg-transparent xl:px-1"
                 key={label}
               >
-                <dt className="min-w-0 text-[13px] font-medium text-slate-500">
+                <dt className="text-[13px] font-medium text-slate-500">
                   {label}
                 </dt>
-                <dd className="mt-0.5 shrink-0 whitespace-nowrap text-[15px] font-semibold tracking-[-0.02em] text-slate-800 lg:mt-0">
+                <dd className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em] text-slate-800 xl:mt-0">
                   {amount} {unit}
                 </dd>
               </div>
@@ -1311,10 +1311,10 @@ function Onboarding({ navigate }) {
   }
 
   return (
-    <main className="onboarding-page font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
+    <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
-          <Brand logo />
+          <Brand />
           <ProfileDropdown
             data={{
               name:
@@ -1564,7 +1564,7 @@ function Onboarding({ navigate }) {
                   value={height}
                 />
               </div>
-              <div className="mt-6 rounded-2xl border border-sky-500 bg-sky-500 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-sky-600 hover:bg-sky-600 hover:shadow-md hover:shadow-sky-200/70 sm:p-5">
+              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-md hover:shadow-sky-200/70 sm:p-5">
                 <div className="flex items-start gap-3">
                   <Sparkles className="mt-0.5 size-5 shrink-0 text-white" />
                   <div>
@@ -1673,7 +1673,7 @@ function Onboarding({ navigate }) {
                   description="Tingkatkan asupan secara seimbang"
                 />
               </div>
-              <div className="mt-6 rounded-2xl border border-sky-500 bg-sky-500 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-sky-600 hover:bg-sky-600 hover:shadow-xl hover:shadow-sky-200/70 sm:flex sm:items-center sm:justify-between sm:p-5">
+              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-xl hover:shadow-sky-200/70 sm:flex sm:items-center sm:justify-between sm:p-5">
                 <div>
                   <p className="text-sm font-semibold text-white">
                     Acuanmu siap dihitung
@@ -1700,7 +1700,7 @@ function Onboarding({ navigate }) {
               <ArrowLeft className="size-4" /> Kembali
             </Button>
             <Button
-              className="min-w-36 bg-sky-500 px-4 shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition duration-200 hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-200 sm:px-5"
+              className="min-w-36 bg-gradient-to-r from-sky-500 to-blue-600 px-4 shadow-[0_10px_24px_-12px_rgba(2,132,199,.8)] transition duration-200 hover:-translate-y-0.5 hover:from-sky-600 hover:to-blue-700 hover:shadow-lg hover:shadow-sky-200 sm:px-5"
               disabled={saving}
               onClick={() => (step < 3 ? continueStep() : finishOnboarding())}
             >
