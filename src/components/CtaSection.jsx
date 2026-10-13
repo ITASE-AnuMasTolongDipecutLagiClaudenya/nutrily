@@ -68,7 +68,7 @@ export default function CtaSection() {
           <button
             onClick={() => navigate("/login")}
             type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-200"
+            className="landing-cta"
           >
             Mulai Sekarang <ArrowRight className="size-4" />
           </button>

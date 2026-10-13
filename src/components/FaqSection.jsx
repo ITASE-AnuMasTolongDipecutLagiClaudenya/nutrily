@@ -124,27 +124,12 @@ export default function FaqSection() {
           {Object.entries(categories).map(([key, label]) => (
             <button
               key={key}
+              aria-pressed={selected === key}
               onClick={() => setSelected(key)}
               type="button"
-              className={cn(
-                "relative overflow-hidden whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-300",
-                selected === key
-                  ? "border-white text-sky-600"
-                  : "border-white bg-white text-sky-600 shadow-lg hover:bg-sky-50",
-              )}
+              className="landing-cta landing-cta-light"
             >
-              <span className="relative z-10">{label}</span>
-              <AnimatePresence>
-                {selected === key && (
-                  <motion.span
-                    initial={{ y: "100%" }}
-                    animate={{ y: "0%" }}
-                    exit={{ y: "100%" }}
-                    transition={{ duration: 0.4, ease: "backIn" }}
-                    className="absolute inset-0 z-0 bg-white"
-                  />
-                )}
-              </AnimatePresence>
+              {label}
             </button>
           ))}
         </div>

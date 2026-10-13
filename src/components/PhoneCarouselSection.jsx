@@ -69,7 +69,7 @@ export default function PhoneCarouselSection() {
               gizinya untukmu.
             </p>
             <button
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-sky-600 shadow-lg transition hover:bg-sky-50"
+              className="landing-cta landing-cta-light mt-5"
               onClick={go}
               type="button"
             >
@@ -79,7 +79,7 @@ export default function PhoneCarouselSection() {
           <div className="order-1 flex items-center justify-center gap-4 sm:gap-6 lg:order-2">
             <button
               aria-label="Gambar sebelumnya"
-              className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-sky-600 shadow-lg transition hover:bg-sky-50"
+              className="landing-carousel-control grid size-11 shrink-0 place-items-center rounded-full bg-white text-sky-600 shadow-lg transition hover:bg-sky-50"
               onClick={prev}
               type="button"
             >
@@ -108,7 +108,7 @@ export default function PhoneCarouselSection() {
             </div>
             <button
               aria-label="Gambar berikutnya"
-              className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-sky-600 shadow-lg transition hover:bg-sky-50"
+              className="landing-carousel-control grid size-11 shrink-0 place-items-center rounded-full bg-white text-sky-600 shadow-lg transition hover:bg-sky-50"
               onClick={next}
               type="button"
             >
@@ -127,7 +127,7 @@ export default function PhoneCarouselSection() {
               harianmu.
             </p>
             <button
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-sky-600 shadow-lg transition hover:bg-sky-50"
+              className="landing-cta landing-cta-light mt-5"
               onClick={go}
               type="button"
             >
@@ -160,7 +160,7 @@ export default function PhoneCarouselSection() {
             yang mudah dipahami.
           </p>
           <button
-            className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-sky-600 shadow-lg transition hover:bg-sky-50"
+            className="landing-cta landing-cta-light mt-5"
             onClick={go}
             type="button"
           >

@@ -146,18 +146,22 @@ function Button({
   )
 }
 
-function Brand({ compact = false, light = false }) {
+function Brand({ compact = false, light = false, logo = false }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200">
-        <Leaf className="size-5" strokeWidth={2.4} />
+      <div className={cn("grid size-9 place-items-center", !logo && "rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200")}>
+        {logo ? (
+          <img alt="" aria-hidden="true" className="size-9 object-contain" src={`${import.meta.env.BASE_URL}logo-biru.png`} />
+        ) : (
+          <Leaf className="size-5" strokeWidth={2.4} />
+        )}
       </div>
       {!compact && (
         <div
           className={cn(
             "text-xl font-bold tracking-tight",
 
-            light ? "text-white" : "text-slate-900",
+            light ? "text-white" : "text-black",
           )}
         >
           Nutri
@@ -557,18 +561,13 @@ function NutrilyHero() {
 
 function LandingNav({ navigate }) {
   const [scrolled, setScrolled] = useState(false)
-
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const onScroll = () => {
-      const y = window.scrollY
-
-      setScrolled(y > 24)
-
+      setScrolled(window.scrollY > 24)
       const max = document.documentElement.scrollHeight - window.innerHeight
-
-      setProgress(max > 0 ? Math.min(1, Math.max(0, y / max)) : 0)
+      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0)
     }
 
     onScroll()
@@ -582,28 +581,23 @@ function LandingNav({ navigate }) {
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center px-4">
       <div
         className={cn(
-          "w-full transition-all duration-300",
+          "landing-nav-frame relative isolate w-full rounded-2xl transition-[width,max-width,margin,padding] duration-500 ease-in-out",
 
-          scrolled ? "mt-3 w-full rounded-xl p-[5px] sm:w-[85%]" : "max-w-7xl",
+          scrolled ? "mt-3 w-full p-[5px] sm:w-[85%]" : "max-w-7xl p-0",
         )}
-        style={
-          scrolled
-            ? {
-                background: `conic-gradient(#0ea5e9 ${progress * 360}deg, rgba(255,255,255,.18) 0deg)`,
-              }
-            : undefined
-        }
+        data-scrolled={scrolled}
+        style={{ "--landing-nav-progress": `${progress * 360}deg` }}
       >
         <nav
           className={cn(
-            "flex w-full items-center justify-between transition-all duration-300",
+            "relative z-[1] flex w-full items-center justify-between transition-[padding,border-radius,background-color] duration-500 ease-in-out",
 
             scrolled
-              ? "gap-6 rounded-xl bg-sky-950/20 px-4 py-2 shadow-md shadow-sky-950/20 backdrop-blur-[2px]"
-              : "bg-transparent px-1 py-5 sm:px-3",
+              ? "min-h-[68px] gap-6 rounded-xl bg-white px-4 py-3"
+              : "min-h-[68px] rounded-none bg-transparent px-1 py-4 sm:px-3",
           )}
         >
-          <Brand light />
+          <Brand compact logo />
           <div className="flex items-center gap-2">
             <Button className="px-4 sm:px-5" onClick={() => navigate("auth")}>
               Mulai sekarang <ArrowRight className="size-4" />
@@ -746,7 +740,7 @@ function Landing({ navigate }) {
   }, [loading])
 
   return (
-    <main className="relative min-h-screen overflow-x-clip bg-white text-slate-900">
+    <main className="landing-page font-poppins relative min-h-screen overflow-x-clip bg-white text-slate-900">
       {loading && <Preloader onDone={() => setLoading(false)} />}
       <div ref={landingRef} style={{ opacity: 0 }}>
         <LandingNav navigate={navigate} />
