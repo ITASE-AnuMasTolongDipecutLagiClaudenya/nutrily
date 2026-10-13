@@ -8,6 +8,8 @@ import {
   useNavigate,
 } from "react-router-dom"
 
+import { createPortal } from "react-dom"
+
 import {
   Activity,
   Apple,
@@ -22,12 +24,11 @@ import {
   Dumbbell,
   Flame,
   ExternalLink,
+  History,
   HeartPulse,
+  ImagePlus,
   Leaf,
-  List,
   Menu,
-  MessageCircleMore,
-  Mic,
   MoreHorizontal,
   Plus,
   ReceiptText,
@@ -36,6 +37,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp,
   Upload,
   Utensils,
@@ -75,6 +77,10 @@ import AuthGridBackground from "./components/AuthGridBackground"
 
 import ProfileDropdown from "./components/ui/profile-dropdown"
 
+import { ThemeToggle } from "./components/ui/theme-toggle"
+
+import { LimelightNav } from "./components/ui/limelight-nav"
+
 import CalorieChart from "./components/ui/calorie-chart"
 
 import BarRaceChart from "./components/ui/bar-race-chart.tsx"
@@ -88,6 +94,12 @@ import GlowCard from "./components/GlowCard"
 import ScannerFlow from "./components/ScannerFlow"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
+
+const newConversationId = () =>
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16)
+    return (character === "x" ? random : (random & 0x3) | 0x8).toString(16)
+  })
 
 function Button({
   children,
@@ -2081,97 +2093,139 @@ function AppShell({
 }) {
   const { user } = useAuth()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarHovered, setSidebarHovered] = useState(false)
+  const [suppressSidebarHover, setSuppressSidebarHover] = useState(false)
+  const sidebarExpanded =
+    !sidebarCollapsed || (sidebarHovered && !suppressSidebarHover)
 
   const items = [
     ["dashboard", "Ringkasan", Activity],
 
-    ["scanner", "Pemindai makanan", ScanLine],
+    ["scanner", "Scan", ScanLine],
 
-    ["chat", "Konsultan gizi AI", MessageCircleMore],
+    ["chat", "Nutrily AI", Sparkles],
 
-    ["meals", "Riwayat makan", List],
+    ["meals", "Riwayat", History],
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {!minimal && (
+    <div className="dashboard-shell min-h-screen bg-slate-50 text-slate-900">
+      {!minimal && active !== "chat" && (
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 transition-[width] duration-200 lg:flex",
-            sidebarCollapsed ? "w-20" : "w-64",
+            "group fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 font-poppins font-semibold transition-[width,box-shadow,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:flex",
+            sidebarExpanded ? "w-64 px-5" : "w-20 px-2",
+            sidebarCollapsed &&
+              sidebarExpanded &&
+              "shadow-[12px_0_40px_-18px_rgba(14,165,233,0.35)]",
           )}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => {
+            setSidebarHovered(false)
+            setSuppressSidebarHover(false)
+          }}
         >
           <div
             className={cn(
               "flex items-center py-2",
-              sidebarCollapsed
-                ? "flex-col justify-center gap-2"
-                : "justify-between px-2",
+              sidebarExpanded ? "justify-between" : "justify-center",
             )}
           >
-            <Brand compact={sidebarCollapsed} />
             <button
-              aria-expanded={!sidebarCollapsed}
-              aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
-              className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              title={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+              aria-expanded={sidebarExpanded}
+              aria-label={
+                sidebarCollapsed
+                  ? "Buka sidebar permanen"
+                  : "Tutup sidebar permanen"
+              }
+              className={cn(
+                "grid shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white to-sky-50 text-sky-700 shadow-sm ring-1 ring-sky-100 transition-all duration-300 hover:scale-105 hover:rotate-[-3deg] hover:shadow-md hover:shadow-sky-200/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 motion-reduce:transition-none",
+                sidebarExpanded ? "size-10" : "size-7",
+              )}
+              onClick={() => {
+                const collapse = !sidebarCollapsed
+                setSidebarCollapsed(collapse)
+                setSuppressSidebarHover(collapse && sidebarHovered)
+              }}
+              title={
+                sidebarCollapsed
+                  ? "Buka sidebar permanen"
+                  : "Tutup sidebar permanen"
+              }
               type="button"
             >
-              {sidebarCollapsed ? (
-                <ArrowRight className="size-4" />
-              ) : (
-                <ArrowLeft className="size-4" />
-              )}
+              <Menu className="size-5" strokeWidth={2.2} />
             </button>
+            {sidebarExpanded && <ThemeToggle className="shrink-0" size="sm" />}
           </div>
           <nav className="mt-8 space-y-1.5">
             {items.map(([screen, label, Icon]) => (
               <button
                 aria-label={sidebarCollapsed ? label : undefined}
                 className={cn(
-                  "flex w-full items-center rounded-xl py-3 text-sm font-semibold transition",
-
-                  sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3",
+                  "group/item flex w-full items-center rounded-xl py-3 text-xs font-normal transition-all duration-300 ease-out hover:translate-x-1 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:text-sky-700 hover:shadow-[0_8px_20px_-14px_rgba(14,165,233,0.8)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 motion-reduce:transition-none",
+                  !sidebarExpanded ? "justify-center px-0" : "gap-3 px-3",
                   active === screen
-                    ? "bg-sky-50 text-sky-600"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
+                    ? "bg-gradient-to-r from-sky-50 via-sky-50 to-indigo-50 text-sky-700 shadow-sm ring-1 ring-sky-100"
+                    : "text-slate-500",
                 )}
                 key={screen}
                 onClick={() => navigate(screen)}
                 title={sidebarCollapsed ? label : undefined}
               >
-                <Icon className="size-5" />
-                {!sidebarCollapsed && label}
+                <Icon className="size-5 shrink-0 transition-transform duration-300 group-hover/item:scale-110 motion-reduce:transition-none" />
+                <span
+                  className={cn(
+                    "overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-300 ease-out motion-reduce:transition-none",
+                    !sidebarExpanded && "max-w-0 -translate-x-2 opacity-0",
+                    sidebarExpanded && "max-w-48 translate-x-0 opacity-100",
+                  )}
+                >
+                  {label}
+                </span>
               </button>
             ))}
           </nav>
-          <div
+          <button
+            aria-label="Buka sidebar secara permanen"
             className={cn(
-              "mt-auto rounded-2xl bg-slate-900 text-white",
-              sidebarCollapsed
-                ? "grid size-10 place-items-center self-center"
-                : "p-4",
+              "mt-auto flex min-w-0 items-center rounded-xl border-t border-slate-100 pt-3 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100",
+              !sidebarExpanded ? "mx-auto" : "gap-2.5 px-2",
             )}
-            title={sidebarCollapsed ? "Catat asupanmu" : undefined}
+            onClick={() => setSidebarCollapsed(false)}
+            title={sidebarCollapsed ? "Buka sidebar" : undefined}
+            type="button"
           >
-            <Sparkles className="size-5 text-sky-300" />
-            {!sidebarCollapsed && (
-              <>
-                <p className="mt-3 text-sm font-bold">Catat asupanmu</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Pantau perkembangan gizimu setiap hari.
-                </p>
-              </>
-            )}
-          </div>
+            <Brand compact />
+            <span
+              className={cn(
+                "text-xl font-semibold tracking-tight text-slate-900",
+                !sidebarExpanded && "hidden",
+              )}
+            >
+              Nutri<span className="text-sky-500">ly</span>
+            </span>
+          </button>
         </aside>
       )}
       <div
-        className={minimal ? "" : sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}
+        className={cn(
+          minimal || active === "chat"
+            ? ""
+            : sidebarExpanded
+              ? "lg:pl-64"
+              : "lg:pl-20",
+          !minimal &&
+            "transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        )}
       >
-        {!camera && (
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8">
+        {!camera && active !== "chat" && (
+          <header
+            className={cn(
+              "sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8",
+              active === "dashboard" ? "h-20" : "h-16",
+            )}
+          >
             {minimal ? (
               <>
                 <Brand />
@@ -2247,24 +2301,25 @@ function AppShell({
         )}
         {children}
       </div>
-      {!minimal && (
-        <nav className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-around rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-2xl shadow-slate-300/70 backdrop-blur lg:hidden">
-          {items.map(([screen, label, Icon]) => (
-            <button
-              className={cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-semibold",
-
-                active === screen ? "bg-sky-50 text-sky-600" : "text-slate-400",
-              )}
-              key={screen}
-              onClick={() => navigate(screen)}
-            >
-              <Icon className="size-5" />
-              {label.split(" ")[0]}
-            </button>
-          ))}
-        </nav>
-      )}
+      {!minimal &&
+        active !== "chat" &&
+        createPortal(
+          <LimelightNav
+            activeIndex={Math.max(
+              0,
+              items.findIndex(([screen]) => screen === active),
+            )}
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-50 h-16 w-[92vw] -translate-x-1/2 rounded-2xl border-slate-200 bg-white/95 shadow-[0_12px_36px_-14px_rgba(15,23,42,0.3)] backdrop-blur lg:hidden"
+            iconContainerClassName="flex-1 px-3"
+            items={items.map(([screen, label, Icon]) => ({
+              id: screen,
+              icon: <Icon />,
+              label,
+              onClick: () => navigate(screen),
+            }))}
+          />,
+          document.body,
+        )}
     </div>
   )
 }
@@ -2506,19 +2561,19 @@ function Dashboard({ navigate }) {
             </div>
           </section>
 
-          <section className="relative overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-xl shadow-slate-200">
-            <div className="absolute -right-12 -top-12 size-40 rounded-full bg-sky-500/20 blur-2xl" />
+          <section className="relative overflow-hidden rounded-3xl bg-sky-500 p-6 text-white shadow-xl shadow-sky-200">
+            <div className="absolute -right-12 -top-12 size-40 rounded-full bg-white/20 blur-2xl" />
             <Pill icon={Sparkles}>Ringkasan asupan</Pill>
-            <h2 className="relative mt-5 text-xl font-bold leading-7">
+            <h2 className="relative mt-5 text-xl font-bold leading-7 text-slate-950">
               {Number(totals.protein_g || 0) < 70
                 ? "Tambahkan sumber protein pada menu berikutnya."
                 : "Asupan proteinmu hari ini sudah tercatat dengan baik."}
             </h2>
-            <p className="relative mt-3 text-sm leading-6 text-slate-400">
+            <p className="relative mt-3 text-sm leading-6 text-slate-800">
               Ringkasan dihitung dari makanan yang kamu catat hari ini.
             </p>
             <Button
-              className="relative mt-6 w-full border-white/10 bg-white/10 text-white hover:bg-white/15"
+              className="relative mt-6 w-full border-white bg-white text-sky-700 hover:border-sky-50 hover:bg-sky-50"
               onClick={() => navigate("chat")}
               variant="secondary"
             >
@@ -2529,8 +2584,8 @@ function Dashboard({ navigate }) {
                 <Leaf className="size-5" />
               </div>
               <div>
-                <p className="text-xs text-slate-400">Kualitas gizi</p>
-                <p className="mt-0.5 text-sm font-bold">
+                <p className="text-xs text-slate-800">Kualitas gizi</p>
+                <p className="mt-0.5 text-sm font-bold text-slate-950">
                   {Math.round(
                     (Number(totals.calories || 0) /
                       Number(targets.calories || 2100)) *
@@ -3312,7 +3367,13 @@ function Scanner({ navigate }) {
 }
 
 function Chat({ navigate }) {
+  const { search } = useLocation()
+  const requestedConversationId = new URLSearchParams(search).get(
+    "conversation_id",
+  )
   const [message, setMessage] = useState("")
+
+  const [image, setImage] = useState(null)
 
   const [notice, setNotice] = useState("")
 
@@ -3320,31 +3381,56 @@ function Chat({ navigate }) {
 
   const [messages, setMessages] = useState([])
 
-  const [conversationId, setConversationId] = useState("")
+  const [conversationId, setConversationId] = useState(
+    () => requestedConversationId || newConversationId(),
+  )
 
   const [conversations, setConversations] = useState([])
 
   const [showMobileChats, setShowMobileChats] = useState(false)
 
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const [deletingId, setDeletingId] = useState("")
+
+  const imageInput = useRef(null)
+
+  const messagesPanel = useRef(null)
+
+  const imageUrls = useRef([])
+
+  useEffect(
+    () => () => imageUrls.current.forEach((url) => URL.revokeObjectURL(url)),
+    [],
+  )
+
   useEffect(() => {
-    Promise.all([api("/chat"), api("/conversations")])
-
-      .then(([result, items]) => {
-        setConversationId(result.conversation_id || crypto.randomUUID())
-
-        setConversations(items)
-
-        setMessages(
-          result.messages.map((item) => ({
-            from: item.role === "assistant" ? "ai" : "user",
-
-            text: item.content,
-          })),
-        )
-      })
-
+    api("/conversations")
+      .then((items) => setConversations(Array.isArray(items) ? items : []))
       .catch((error) => setNotice(error.message))
+    if (requestedConversationId) {
+      api(
+        `/chat?conversation_id=${encodeURIComponent(requestedConversationId)}`,
+      )
+        .then((result) => {
+          setConversationId(requestedConversationId)
+          setMessages(
+            (Array.isArray(result?.messages) ? result.messages : [])
+              .filter(Boolean)
+              .map((item) => ({
+                from: item.role === "assistant" ? "ai" : "user",
+                text: item.content || "",
+              })),
+          )
+        })
+        .catch((error) => setNotice(error.message))
+    }
   }, [])
+
+  useEffect(() => {
+    const panel = messagesPanel.current
+    if (panel) panel.scrollTop = panel.scrollHeight
+  }, [messages])
 
   const openConversation = async (id) => {
     setNotice("")
@@ -3359,11 +3445,12 @@ function Chat({ navigate }) {
       setConversationId(id)
 
       setMessages(
-        result.messages.map((item) => ({
-          from: item.role === "assistant" ? "ai" : "user",
-
-          text: item.content,
-        })),
+        (Array.isArray(result?.messages) ? result.messages : [])
+          .filter(Boolean)
+          .map((item) => ({
+            from: item.role === "assistant" ? "ai" : "user",
+            text: item.content || "",
+          })),
       )
     } catch (error) {
       setNotice(error.message)
@@ -3371,7 +3458,8 @@ function Chat({ navigate }) {
   }
 
   const startNewChat = () => {
-    setConversationId(crypto.randomUUID())
+    setConversationId(newConversationId())
+    navigate("/chat", { replace: true })
 
     setMessages([
       {
@@ -3386,32 +3474,88 @@ function Chat({ navigate }) {
     setNotice("")
 
     setShowMobileChats(false)
+
+    setImage(null)
+  }
+
+  const deleteConversation = async (id) => {
+    if (!window.confirm("Hapus riwayat percakapan ini?")) return
+    setDeletingId(id)
+    setNotice("")
+    try {
+      await api(`/conversations?conversation_id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
+      setConversations((items) => items.filter((item) => item.id !== id))
+      setShowMobileChats(false)
+      if (conversationId === id) {
+        setConversationId(newConversationId())
+        setMessages([])
+        setMessage("")
+        setImage(null)
+        navigate("/chat", { replace: true })
+      }
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setDeletingId("")
+    }
+  }
+
+  const chooseImage = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!/^image\/(jpeg|png)$/.test(file.type)) {
+      setNotice("Gunakan gambar JPG atau PNG.")
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setNotice("Ukuran gambar maksimal 8 MB.")
+      return
+    }
+    const url = URL.createObjectURL(file)
+    imageUrls.current.push(url)
+    setImage({ file, url })
+    setNotice("")
   }
 
   const send = async (event) => {
     event.preventDefault()
 
-    if (!message.trim() || sending) return
+    if ((!message.trim() && !image) || sending) return
 
     const question = message.trim()
+
+    const userMessage = {
+      from: "user",
+      text: question,
+      imageUrl: image?.url,
+    }
 
     setSending(true)
 
     setNotice("")
 
-    setMessages((current) => [...current, { from: "user", text: question }])
+    setMessages((current) => [...current, userMessage])
 
     setMessage("")
 
+    setImage(null)
+
     try {
+      const body = image
+        ? (() => {
+            const form = new FormData()
+            form.append("message", question)
+            form.append("conversation_id", conversationId)
+            form.append("image", image.file)
+            return form
+          })()
+        : JSON.stringify({ message: question, conversation_id: conversationId })
       const result = await api("/chat", {
         method: "POST",
-
-        body: JSON.stringify({
-          message: question,
-
-          conversation_id: conversationId,
-        }),
+        body,
       })
 
       setMessages((current) => [
@@ -3420,17 +3564,16 @@ function Chat({ navigate }) {
         { from: "ai", text: result.answer },
       ])
 
-      setConversations(await api("/conversations"))
+      const items = await api("/conversations")
+      setConversations(Array.isArray(items) ? items : [])
     } catch (error) {
       setNotice(error.message)
 
-      setMessages((current) =>
-        current.filter(
-          (item) => !(item.from === "user" && item.text === question),
-        ),
-      )
+      setMessages((current) => current.filter((item) => item !== userMessage))
 
       setMessage(question)
+
+      setImage(image)
     } finally {
       setSending(false)
     }
@@ -3438,67 +3581,129 @@ function Chat({ navigate }) {
 
   return (
     <AppShell active="chat" navigate={navigate}>
-      <main className="h-[calc(100vh-5rem)] p-0 sm:p-5">
-        <div className="relative mx-auto grid h-full max-w-7xl overflow-hidden border-slate-100 bg-white shadow-sm sm:rounded-3xl sm:border lg:grid-cols-[260px_1fr]">
-          <aside className="hidden border-r border-slate-100 bg-slate-50/70 p-4 lg:block">
+      <main className="h-dvh overflow-hidden bg-white">
+        <div
+          className={cn(
+            "relative mx-auto grid h-full max-w-[1600px] overflow-hidden bg-white",
+            sidebarOpen
+              ? "lg:grid-cols-[260px_minmax(0,1fr)]"
+              : "lg:grid-cols-[0_minmax(0,1fr)]",
+          )}
+        >
+          <aside
+            className={cn(
+              "hidden min-h-0 overflow-hidden border-r border-slate-100 bg-[#f9f9f9] p-3 lg:flex lg:flex-col",
+              !sidebarOpen && "border-0 p-0",
+            )}
+            aria-hidden={!sidebarOpen}
+          >
+            <Brand />
             <Button
-              className="w-full"
+              className="mt-6 w-full justify-start rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-none hover:bg-slate-50"
               onClick={startNewChat}
               variant="secondary"
             >
               <Plus className="size-4" /> Percakapan baru
             </Button>
-            <p className="mb-2 mt-7 px-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">
-              Obrolan terbaru
+            <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-500">
+              Riwayat percakapan
             </p>
-            <div className="space-y-1">
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {conversations.map((item) => (
-                <button
-                  className="w-full truncate rounded-xl px-3 py-3 text-left text-xs text-slate-600 hover:bg-white"
-                  key={item.id}
-                  onClick={() => openConversation(item.id)}
-                >
-                  {String(item.preview || "Percakapan baru").slice(0, 54)}
-                </button>
+                <div className="flex items-start gap-1" key={item.id}>
+                  <button
+                    aria-current={
+                      conversationId === item.id ? "page" : undefined
+                    }
+                    className={cn(
+                      "min-w-0 flex-1 truncate rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-slate-200/70",
+                      conversationId === item.id
+                        ? "bg-slate-200/70 font-semibold text-slate-800"
+                        : "text-slate-700",
+                    )}
+                    onClick={() => openConversation(item.id)}
+                    type="button"
+                  >
+                    <span className="block truncate">
+                      {String(item.preview || "Percakapan baru").slice(0, 54)}
+                    </span>
+                    <span
+                      className="mt-1 block truncate font-mono text-[10px] text-slate-400"
+                      title={`ID sesi: ${item.id}`}
+                    >
+                      ID sesi: {item.id}
+                    </span>
+                  </button>
+                  <button
+                    aria-label="Hapus percakapan"
+                    className="mt-1 grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                    disabled={Boolean(deletingId)}
+                    onClick={() => deleteConversation(item.id)}
+                    title="Hapus percakapan"
+                    type="button"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               ))}
               {!conversations.length && (
-                <p className="px-2 text-xs leading-5 text-slate-400">
+                <p className="px-3 text-xs leading-5 text-slate-400">
                   Belum ada percakapan.
                 </p>
               )}
             </div>
           </aside>
 
-          <section className="flex min-w-0 flex-col">
-            <header className="flex h-18 shrink-0 items-center justify-between border-b border-slate-100 px-4 sm:px-6">
+          <section className="flex min-h-0 min-w-0 flex-col">
+            <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6">
               <div className="flex items-center gap-3">
+                <button
+                  aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+                  aria-expanded={sidebarOpen}
+                  className="hidden size-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:grid"
+                  onClick={() => setSidebarOpen((open) => !open)}
+                  title={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+                  type="button"
+                >
+                  <Menu className="size-4.5" />
+                </button>
                 <button
                   aria-label="Buka daftar obrolan"
                   aria-expanded={showMobileChats}
-                  className="grid size-9 place-items-center rounded-xl bg-slate-50 text-slate-500 lg:hidden"
+                  className="grid size-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
                   onClick={() => setShowMobileChats((shown) => !shown)}
                   type="button"
                 >
                   <Menu className="size-4.5" />
                 </button>
-                <div className="relative grid size-10 place-items-center rounded-xl bg-sky-500 text-white">
-                  <Bot className="size-5" />
-                  <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white bg-emerald-400" />
-                </div>
-                <div>
-                  <h1 className="text-sm font-bold text-slate-800">
-                    Nutrily AI
-                  </h1>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    Asisten gizi personal
-                  </p>
-                </div>
+                <h1 className="text-sm font-semibold text-slate-800">
+                  Nutrily AI
+                </h1>
               </div>
-              <Pill icon={ShieldCheck}>Konteks kesehatan aktif</Pill>
+              <div className="flex items-center gap-3">
+                <span className="hidden text-xs text-slate-400 sm:block">
+                  Asisten gizi personal
+                </span>
+                <span
+                  className="max-w-24 truncate font-mono text-[10px] text-slate-400 sm:max-w-36"
+                  title={`ID sesi: ${conversationId}`}
+                >
+                  ID: {conversationId.slice(0, 8)}
+                </span>
+                <button
+                  aria-label="Kembali ke ringkasan"
+                  className="grid size-9 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
+                  onClick={() => navigate("dashboard")}
+                  title="Kembali ke ringkasan"
+                  type="button"
+                >
+                  <ArrowLeft className="size-4.5" />
+                </button>
+              </div>
             </header>
 
             {showMobileChats && (
-              <div className="absolute inset-x-0 top-18 z-30 border-b border-slate-100 bg-white p-4 shadow-lg lg:hidden">
+              <div className="absolute inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-slate-100 bg-white p-4 shadow-lg lg:hidden">
                 <Button
                   className="w-full"
                   onClick={startNewChat}
@@ -3510,47 +3715,81 @@ function Chat({ navigate }) {
                   Obrolan terbaru
                 </p>
                 {conversations.map((item) => (
-                  <button
-                    className="block w-full truncate rounded-xl px-3 py-3 text-left text-xs text-slate-600 hover:bg-slate-50"
-                    key={item.id}
-                    onClick={() => openConversation(item.id)}
-                  >
-                    {String(item.preview || "Percakapan baru").slice(0, 54)}
-                  </button>
+                  <div className="flex items-start gap-1" key={item.id}>
+                    <button
+                      className="block min-w-0 flex-1 truncate rounded-lg px-3 py-2.5 text-left text-[13px] text-slate-600 hover:bg-slate-50"
+                      onClick={() => openConversation(item.id)}
+                      type="button"
+                    >
+                      <span className="block truncate">
+                        {String(item.preview || "Percakapan baru").slice(0, 54)}
+                      </span>
+                      <span
+                        className="mt-1 block truncate font-mono text-[10px] text-slate-400"
+                        title={`ID sesi: ${item.id}`}
+                      >
+                        ID sesi: {item.id}
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Hapus percakapan"
+                      className="grid size-10 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      disabled={Boolean(deletingId)}
+                      onClick={() => deleteConversation(item.id)}
+                      type="button"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-4 py-7 sm:px-8">
-              <div className="mx-auto max-w-3xl">
-                <div className="mb-8 text-center">
-                  <Pill icon={Sparkles}>Hari ini</Pill>
-                  <p className="mt-3 text-xs text-slate-400">
-                    Nutrily menggunakan profilmu sebagai konteks.
-                  </p>
-                </div>
-                <div className="space-y-6">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8"
+              ref={messagesPanel}
+            >
+              <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end">
+                {!messages.length && (
+                  <div className="m-auto max-w-lg px-4 text-center">
+                    <div className="mx-auto mb-5 grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-700">
+                      <Sparkles className="size-6" />
+                    </div>
+                    <h2 className="text-2xl font-semibold tracking-tight text-slate-800">
+                      Apa yang ingin kamu ketahui?
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Tanyakan makanan, nutrisi, atau target harianmu.
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-7 py-4">
                   {messages.map((item, index) =>
                     item.from === "ai" ? (
                       <div
-                        className="flex max-w-2xl items-start gap-3"
+                        className="flex max-w-3xl items-start gap-3 text-slate-800"
                         key={item.id || `${item.from}-${index}`}
                       >
-                        <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-sky-500 text-white">
-                          <Bot className="size-4" />
+                        <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
+                          <Sparkles className="size-4" />
                         </div>
-                        <div>
-                          <div className="rounded-2xl rounded-tl-sm bg-sky-50 px-4 py-3 text-sm leading-6 text-slate-700">
-                            {item.text}
-                          </div>
+                        <div className="min-w-0 flex-1 whitespace-pre-wrap pt-1 text-[15px] leading-7">
+                          {item.text}
                         </div>
                       </div>
                     ) : (
                       <div
-                        className="ml-auto flex max-w-xl justify-end"
+                        className="ml-auto flex max-w-[85%] justify-end sm:max-w-[75%]"
                         key={item.id || `${item.from}-${index}`}
                       >
-                        <div className="rounded-2xl rounded-tr-sm bg-sky-500 px-4 py-3 text-sm leading-6 text-white shadow-md shadow-sky-100">
+                        <div className="rounded-3xl bg-[#f4f4f4] px-5 py-3 text-[15px] leading-6 text-slate-800">
+                          {item.imageUrl && (
+                            <img
+                              alt="Gambar terlampir"
+                              className="mb-2 max-h-64 max-w-full rounded-2xl object-contain"
+                              src={item.imageUrl}
+                            />
+                          )}
                           {item.text}
                         </div>
                       </div>
@@ -3560,34 +3799,62 @@ function Chat({ navigate }) {
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-slate-100 bg-white p-3 sm:p-5">
+            <div className="shrink-0 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
               <form
-                className="mx-auto flex max-w-3xl items-end gap-2"
+                className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-[#f4f4f4] p-2 shadow-sm transition focus-within:border-slate-300 focus-within:shadow-md"
                 onSubmit={send}
               >
-                <div className="flex min-h-13 flex-1 items-center rounded-2xl border border-slate-200 bg-white px-4 shadow-sm focus-within:border-sky-300 focus-within:ring-4 focus-within:ring-sky-50">
+                {image && (
+                  <div className="relative mb-2 ml-2 w-fit">
+                    <img
+                      alt="Pratinjau gambar"
+                      className="size-20 rounded-xl object-cover"
+                      src={image.url}
+                    />
+                    <button
+                      aria-label="Hapus gambar"
+                      className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-slate-800 text-white shadow"
+                      onClick={() => setImage(null)}
+                      type="button"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex min-h-11 min-w-0 items-center gap-2">
                   <input
-                    className="h-12 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                    accept="image/jpeg,image/png"
+                    className="hidden"
+                    onChange={chooseImage}
+                    ref={imageInput}
+                    type="file"
+                  />
+                  <button
+                    aria-label="Lampirkan gambar"
+                    className="grid size-10 shrink-0 place-items-center rounded-full text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50"
+                    disabled={sending}
+                    onClick={() => imageInput.current?.click()}
+                    title="Lampirkan gambar JPG atau PNG"
+                    type="button"
+                  >
+                    <ImagePlus className="size-5" />
+                  </button>
+                  <input
+                    className="h-10 min-w-0 flex-1 bg-transparent px-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-500"
+                    maxLength={4000}
                     onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Tanyakan tentang makanan, target, atau hasil pemindaian..."
+                    placeholder="Tanyakan apa saja tentang gizi..."
                     value={message}
                   />
+                  <button
+                    aria-label="Kirim pesan"
+                    className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-800 text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled={sending || (!message.trim() && !image)}
+                    type="submit"
+                  >
+                    <Send className="size-5" />
+                  </button>
                 </div>
-                <button
-                  aria-label="Input suara belum tersedia"
-                  className="grid size-13 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-400"
-                  disabled
-                  type="button"
-                >
-                  <Mic className="size-5" />
-                </button>
-                <button
-                  className="grid size-13 shrink-0 place-items-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-200 transition hover:bg-sky-600 disabled:opacity-50"
-                  disabled={sending}
-                  type="submit"
-                >
-                  <Send className="size-5" />
-                </button>
               </form>
               {notice && (
                 <p

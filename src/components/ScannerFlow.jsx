@@ -864,6 +864,16 @@ function ScannerFlow({ navigate }) {
               Lihat dasbor
             </Button>
             <Button
+              variant="secondary"
+              onClick={() =>
+                navigate(
+                  `/chat?conversation_id=${encodeURIComponent(summaryId)}`,
+                )
+              }
+            >
+              <Sparkles className="size-4" /> Lanjutkan konsultasi di chat
+            </Button>
+            <Button
               onClick={() => {
                 clearSession()
                 navigate("/scanner")

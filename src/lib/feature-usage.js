@@ -3,7 +3,9 @@ export function featureFromRequest(path, body) {
     return body?.get?.("mode") === "receipt" ? "receipt" : "label"
   if (path === "/chat") {
     try {
-      const message = JSON.parse(body || "{}").message || ""
+      const message = body?.get
+        ? body.get("message") || ""
+        : JSON.parse(body || "{}").message || ""
       return message.startsWith("Saya baru memindai makanan berikut:")
         ? null
         : "chatbot"
