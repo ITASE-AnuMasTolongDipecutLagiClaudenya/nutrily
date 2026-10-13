@@ -26,7 +26,7 @@ function PhoneFrame({ children }) {
         aria-hidden
         className="absolute -right-[2px] top-[22%] h-14 w-[3px] rounded-r-sm bg-slate-400/50"
       />
-      <div className="aspect-[9/19.5] rounded-[2.5rem] border border-slate-900 bg-slate-900 p-[0.35rem] shadow-[0_10px_20px_rgba(0,0,0,0.18),0_40px_60px_-20px_rgba(0,0,0,0.35)]">
+      <div className="aspect-[9/19.5] rounded-[2.5rem] border border-slate-900 bg-slate-900 p-[0.35rem] shadow-[0_10px_25px_-10px_rgba(255,255,255,.8)]">
         <div className="relative h-full w-full overflow-hidden rounded-[2.2rem] bg-white ring-1 ring-inset ring-slate-900/20">
           <div
             aria-hidden

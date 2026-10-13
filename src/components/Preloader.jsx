@@ -35,12 +35,12 @@ export default function Preloader({ onDone }) {
 
   useEffect(() => {
     gsap.set(curtainRef.current, { yPercent: 100 })
-    const tl = gsap.timeline({ delay: 2.2 })
+    const tl = gsap.timeline({ delay: 0.4 })
     tl.to([spinRef.current, textRef.current], {
       scale: 0.5,
       y: -24,
       opacity: 0,
-      duration: 0.55,
+      duration: 0.35,
       ease: "power3.in",
       stagger: 0.08,
     })
@@ -50,7 +50,7 @@ export default function Preloader({ onDone }) {
           yPercent: -100,
           borderBottomLeftRadius: "50% 8%",
           borderBottomRightRadius: "50% 8%",
-          duration: 1.1,
+          duration: 0.65,
           ease: "power4.inOut",
         },
         "-=0.05",
@@ -59,12 +59,12 @@ export default function Preloader({ onDone }) {
         curtainRef.current,
         {
           yPercent: -100,
-          duration: 1.1,
+          duration: 0.65,
           ease: "power4.inOut",
         },
         "-=0.92",
       )
-      .add(() => onDone?.(), "-=0.55")
+      .add(() => onDone?.(), "-=0.35")
     return () => {
       tl.kill()
     }

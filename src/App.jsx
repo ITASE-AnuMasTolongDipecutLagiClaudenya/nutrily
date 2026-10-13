@@ -622,9 +622,9 @@ function Landing({ navigate }) {
     },
 
     {
-      icon: Bot,
+      icon: Sparkles,
 
-      title: "Tanya AI gizi",
+      title: "Panduan AI personal",
 
       text: "Dapatkan panduan praktis dan personal berdasarkan asupan harianmu.",
 
@@ -756,9 +756,6 @@ function Landing({ navigate }) {
               <PhoneScrollHero
                 titleComponent={
                   <>
-                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-600">
-                      Nutrily di genggamanmu
-                    </p>
                     <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
                       Seluruh gizimu,
                       <br />
@@ -903,7 +900,7 @@ function Auth({ navigate }) {
   }
 
   return (
-    <main className="relative grid min-h-screen bg-sky-50 lg:grid-cols-[1fr_1.03fr]">
+    <main className="relative grid min-h-screen bg-sky-50 max-lg:h-dvh max-lg:min-h-0 max-lg:overflow-hidden lg:grid-cols-[1fr_1.03fr]">
       <section className="relative hidden overflow-hidden bg-sky-50 p-12 text-slate-900 lg:flex lg:flex-col">
         <AuthGridBackground />
         <div className="relative z-10 my-auto max-w-lg">
@@ -913,12 +910,12 @@ function Auth({ navigate }) {
         </div>
       </section>
 
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sky-50 px-5 py-5 sm:px-10 sm:py-6 lg:bg-white">
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sky-50 px-5 py-5 sm:px-10 sm:py-6 max-lg:h-dvh max-lg:min-h-0 max-lg:!py-3 lg:bg-white">
         <AuthGridBackground className="lg:hidden" />
-        <div className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100 bg-white/90 p-5 backdrop-blur sm:p-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <div className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100 bg-white/90 p-4 backdrop-blur sm:p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="flex items-center justify-between lg:hidden">
             <button onClick={() => navigate("landing")}>
-              <Brand compact />
+              <Brand compact logo />
             </button>
             <button
               aria-label="Kembali ke beranda"
@@ -929,7 +926,7 @@ function Auth({ navigate }) {
               <ArrowLeft className="size-5" />
             </button>
           </div>
-          <div className="mt-7 sm:mt-8 lg:mt-0">
+          <div className="mt-4 sm:mt-5 lg:mt-0">
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-sky-600 sm:text-3xl">
               Selamat Datang!
             </h2>
@@ -978,30 +975,30 @@ function Auth({ navigate }) {
             Lanjutkan dengan Google
           </Button>
 
-          <div className="mt-8 hidden gap-3 xl:grid">
+          <div className="mt-3 grid grid-cols-1 gap-2 xl:mt-8 xl:gap-3">
             {[
-              [ScanLine, "Pindai label makanan dalam sekejap"],
-              [Bot, "Tanya AI gizi yang personal"],
-              [TrendingUp, "Pantau progres harianmu"],
+              [ScanLine, "Pindai label makanan"],
+              [Bot, "Tanya AI gizi"],
+              [TrendingUp, "Pantau perkembanganmu"],
             ].map(([Icon, text]) => (
               <div
-                className="group flex cursor-default items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 transition-all duration-300 hover:-translate-y-1 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-white hover:shadow-lg hover:shadow-sky-100"
+                className="group flex cursor-default items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2 transition-all duration-300 hover:-translate-y-1 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-white hover:shadow-lg hover:shadow-sky-100 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3"
                 key={text}
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-sky-600 shadow-sm transition-all duration-300 group-hover:bg-sky-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-sky-200">
-                  <Icon className="size-4.5" />
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-sky-600 shadow-sm transition-all duration-300 group-hover:bg-sky-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-sky-200 sm:size-9 sm:rounded-xl">
+                  <Icon className="size-4" />
                 </span>
-                <p className="text-sm font-semibold text-slate-700 transition-colors duration-300 group-hover:text-sky-700">
+                <p className="text-xs font-semibold text-slate-700 transition-colors duration-300 group-hover:text-sky-700 sm:text-sm">
                   {text}
                 </p>
               </div>
             ))}
           </div>
-          <div className="group mt-4 hidden cursor-default gap-3 rounded-2xl bg-sky-500 p-4 text-white transition-all duration-300 hover:-translate-y-1 hover:bg-gradient-to-r hover:from-sky-500 hover:to-sky-400 hover:shadow-xl hover:shadow-sky-200 xl:flex">
-            <ShieldCheck className="size-5 shrink-0 text-white transition-transform duration-300 group-hover:scale-110" />
+          <div className="group mt-2 flex cursor-default gap-2 rounded-xl bg-sky-500 p-2.5 text-white transition-all duration-300 hover:-translate-y-1 hover:bg-gradient-to-r hover:from-sky-500 hover:to-sky-400 hover:shadow-xl hover:shadow-sky-200 sm:mt-3 sm:gap-3 sm:rounded-2xl sm:p-4 xl:mt-4">
+            <ShieldCheck className="size-4 shrink-0 text-white transition-transform duration-300 group-hover:scale-110 sm:size-5" />
             <div>
-              <p className="text-sm font-bold">Datamu aman</p>
-              <p className="mt-1 text-xs leading-5 text-sky-50">
+              <p className="text-xs font-bold sm:text-sm">Datamu aman</p>
+              <p className="mt-0.5 text-[10px] leading-4 text-sky-50 sm:mt-1 sm:text-xs sm:leading-5">
                 Privasi adalah prioritas. Data kesehatanmu tetap milikmu.
               </p>
             </div>

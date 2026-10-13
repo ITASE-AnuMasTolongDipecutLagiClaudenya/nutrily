@@ -157,7 +157,7 @@ export default function GlowCard({
           relative
           grid
           grid-rows-[1fr_auto]
-          shadow-[0_1rem_2rem_-1rem_black]
+          shadow-[0_1rem_2rem_-1rem_rgba(7,89,133,0.8)]
           p-4
           gap-4
           backdrop-blur-[5px]

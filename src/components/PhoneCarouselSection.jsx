@@ -21,15 +21,12 @@ const images = [
     src: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&q=80",
     alt: "Menu gizi seimbang di aplikasi Nutrily",
   },
-  {
-    src: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&q=80",
-    alt: "Sayuran segar di aplikasi Nutrily",
-  },
 ]
 
 export default function PhoneCarouselSection() {
   const navigate = useNavigate()
   const [index, setIndex] = useState(0)
+  const activeIndex = index % images.length
 
   useEffect(() => {
     const id = setInterval(
@@ -53,7 +50,7 @@ export default function PhoneCarouselSection() {
           </h2>
           <p className="mt-4 leading-7 text-sky-50">
             Cobain sekarang 3 fitur unggulan kami untuk memantau kesehatan
-            gizimu!.
+            gizimu!
           </p>
         </div>
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-[1fr_auto_1fr]">
@@ -62,7 +59,7 @@ export default function PhoneCarouselSection() {
               <ScanLine className="size-5.5" />
             </div>
             <h3 className="mt-5 text-xl font-bold tracking-tight text-white">
-              Pindai dalam sekejap
+              Pindai label makanan
             </h3>
             <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-6 text-sky-50">
               Arahkan kamera ke label makanan dan biarkan AI membaca kandungan
@@ -86,7 +83,7 @@ export default function PhoneCarouselSection() {
               <ArrowLeft className="size-5" />
             </button>
             <div className="relative mx-auto w-64 sm:w-72">
-              <div className="aspect-[9/19.5] rounded-[2.5rem] border border-slate-900 bg-slate-900 p-[0.35rem] shadow-[0_10px_20px_rgba(0,0,0,0.18),0_40px_60px_-20px_rgba(0,0,0,0.35)]">
+              <div className="aspect-[9/19.5] rounded-[2.5rem] border border-slate-900 bg-slate-900 p-[0.35rem] shadow-[0_10px_25px_-10px_rgba(255,255,255,.8)]">
                 <div className="relative h-full w-full overflow-hidden rounded-[2.2rem] bg-slate-100">
                   <div
                     aria-hidden
@@ -96,7 +93,7 @@ export default function PhoneCarouselSection() {
                     <img
                       alt={image.alt}
                       className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-                        i === index ? "opacity-100" : "opacity-0"
+                        i === activeIndex ? "opacity-100" : "opacity-0"
                       }`}
                       key={image.src}
                       loading={i === 0 ? "eager" : "lazy"}
@@ -104,6 +101,21 @@ export default function PhoneCarouselSection() {
                     />
                   ))}
                 </div>
+              </div>
+              <div className="mt-8 mb-10 flex justify-center gap-2 max-lg:mb-12">
+                {images.map((image, i) => (
+                  <button
+                    aria-label={`Ke gambar ${i + 1}`}
+                    className={`h-2 rounded-full transition-all ${
+                      i === activeIndex
+                        ? "w-8 bg-white"
+                        : "w-2 bg-sky-200 hover:bg-sky-100"
+                    }`}
+                    key={image.src}
+                    onClick={() => setIndex(i)}
+                    type="button"
+                  />
+                ))}
               </div>
             </div>
             <button
@@ -135,25 +147,12 @@ export default function PhoneCarouselSection() {
             </button>
           </div>
         </div>
-        <div className="mt-8 flex justify-center gap-2">
-          {images.map((image, i) => (
-            <button
-              aria-label={`Ke gambar ${i + 1}`}
-              className={`h-2 rounded-full transition-all ${
-                i === index ? "w-8 bg-white" : "w-2 bg-sky-200 hover:bg-sky-100"
-              }`}
-              key={image.src}
-              onClick={() => setIndex(i)}
-              type="button"
-            />
-          ))}
-        </div>
         <div className="mx-auto mt-10 max-w-sm text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-sky-600 shadow-lg">
             <TrendingUp className="size-5.5" />
           </div>
           <h3 className="mt-5 text-xl font-bold tracking-tight text-white">
-            Pantau progres harian
+            Pantau perkembanganmu
           </h3>
           <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-6 text-sky-50">
             Lihat ringkasan kalori dan makronutrienmu setiap hari dengan visual
