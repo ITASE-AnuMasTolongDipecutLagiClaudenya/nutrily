@@ -21,7 +21,7 @@ export default function ProfileDropdown({
         aria-label={`Profil ${data.name}`}
         className="flex min-h-11 max-w-[min(18rem,65vw)] cursor-pointer list-none items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-1.5 text-left transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 [&::-webkit-details-marker]:hidden sm:gap-3 sm:py-2 sm:pl-3 sm:pr-2"
       >
-        <span className="hidden min-w-0 flex-1 sm:block">
+        <span className="hidden min-w-0 flex-1 lg:block">
           <span className="block truncate text-sm font-semibold leading-tight text-slate-900">
             {data.name}
           </span>
@@ -45,11 +45,17 @@ export default function ProfileDropdown({
         </span>
         <ChevronDown
           aria-hidden="true"
-          className="hidden size-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180 sm:block"
+          className="hidden size-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180 lg:block"
         />
       </summary>
 
       <div className="absolute right-0 top-full z-[60] mt-2 w-64 rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-sm">
+        <div className="border-b border-slate-100 px-3 py-2 lg:hidden">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {data.name}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-slate-500">{data.email}</p>
+        </div>
         <button
           className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-sm font-medium text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600"
           onClick={(event) => {
