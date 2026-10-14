@@ -2750,6 +2750,45 @@ function AppShell({
     ["meals", "Riwayat", History],
   ]
 
+  const scrollProgressRef = useRef(null)
+
+  useEffect(() => {
+    let frame = 0
+    const updateProgress = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const lenis = window.__lenis
+        const maxScroll =
+          Math.max(
+            document.documentElement.scrollHeight,
+            document.body.scrollHeight,
+          ) - window.innerHeight
+        const progress = lenis
+          ? lenis.progress
+          : maxScroll > 0
+            ? window.scrollY / maxScroll
+            : 0
+        const bar = scrollProgressRef.current
+        if (!bar) return
+        const percentage = Math.min(1, Math.max(0, progress)) * 100
+        bar.style.width = `${percentage}%`
+        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
+      })
+    }
+
+    updateProgress()
+    window.addEventListener("scroll", updateProgress, { passive: true })
+    window.addEventListener("resize", updateProgress)
+    const observer = new ResizeObserver(updateProgress)
+    observer.observe(document.documentElement)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener("scroll", updateProgress)
+      window.removeEventListener("resize", updateProgress)
+    }
+  }, [])
+
   return (
     <div className="dashboard-shell min-h-screen bg-slate-50 text-slate-900">
       {!minimal && active !== "chat" && (
@@ -2850,7 +2889,7 @@ function AppShell({
             title={sidebarCollapsed ? "Buka sidebar" : undefined}
             type="button"
           >
-            <Brand compact />
+            <Brand compact logo />
             <span
               className={cn(
                 "text-xl font-semibold tracking-tight text-slate-900",
@@ -2960,6 +2999,17 @@ function AppShell({
                 />
               </>
             )}
+            <div className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70">
+              <div
+                aria-label="Progres scroll halaman"
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={0}
+                className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
+                ref={scrollProgressRef}
+                role="progressbar"
+              />
+            </div>
           </header>
         )}
         {children}
@@ -3166,15 +3216,6 @@ function Dashboard({ navigate }) {
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Gambaran asupan gizimu
             </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Tinggal{" "}
-              {Math.max(
-                0,
-
-                (targets.calories || 2100) - (totals.calories || 0),
-              ).toFixed(0)}{" "}
-              kkal lagi untuk mencapai target hari ini.
-            </p>
           </div>
           <Button className="mt-4 md:mt-0" onClick={() => navigate("scanner")}>
             <Plus className="size-4" /> Catat makanan
@@ -3281,28 +3322,33 @@ function Dashboard({ navigate }) {
           <section className="relative overflow-hidden rounded-3xl bg-sky-500 p-6 text-white shadow-xl shadow-sky-200">
             <div className="absolute -right-12 -top-12 size-40 rounded-full bg-white/20 blur-2xl" />
             <Pill icon={Sparkles}>Ringkasan asupan</Pill>
-            <h2 className="relative mt-5 text-xl font-bold leading-7 text-slate-950">
+            <h2 className="relative mt-5 text-xl font-bold leading-7 text-white">
               {Number(totals.protein_g || 0) < 70
-                ? "Tambahkan sumber protein pada menu berikutnya."
+                ? "Analisis asupan gizi harianmu di sini!"
                 : "Asupan proteinmu hari ini sudah tercatat dengan baik."}
             </h2>
-            <p className="relative mt-3 text-sm leading-6 text-slate-800">
+            <p className="relative mt-3 text-sm leading-6 text-white">
               Ringkasan dihitung dari makanan yang kamu catat hari ini.
             </p>
             <Button
-              className="relative mt-6 w-full border-white bg-white text-sky-700 hover:border-sky-50 hover:bg-sky-50"
+              className="relative mt-6 w-full border border-white/80 bg-white !font-bold !text-sky-700 shadow-lg shadow-sky-950/10 transition duration-300 hover:-translate-y-1 hover:scale-[1.01] hover:border-white hover:bg-sky-50 hover:!text-sky-800 hover:shadow-[0_18px_35px_-12px_rgba(7,89,133,0.55)] hover:ring-2 hover:ring-white/60 focus:ring-white/40 active:translate-y-0 active:scale-[0.99]"
               onClick={() => navigate("chat")}
               variant="secondary"
             >
-              Tanya konsultan gizi AI <ArrowRight className="size-4" />
+              Tanya Nutrily AI <ArrowRight className="size-4" />
             </Button>
-            <div className="relative mt-6 flex items-center gap-4 border-t border-white/10 pt-5">
-              <div className="grid size-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
-                <Leaf className="size-5" />
+            <div className="relative mt-6 flex items-center gap-4 rounded-2xl border border-white/15 bg-sky-600 p-4">
+              <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white">
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  className="size-5 object-contain"
+                  src={`${import.meta.env.BASE_URL}logo-biru.png`}
+                />
               </div>
               <div>
-                <p className="text-xs text-slate-800">Kualitas gizi</p>
-                <p className="mt-0.5 text-sm font-bold text-slate-950">
+                <p className="text-xs text-white/85">Kualitas gizi</p>
+                <p className="mt-0.5 text-sm font-bold text-white">
                   {Math.round(
                     (Number(totals.calories || 0) /
                       Number(targets.calories || 2100)) *
@@ -3311,12 +3357,11 @@ function Dashboard({ navigate }) {
                   % dari target
                 </p>
               </div>
-              <Pill tone="emerald">Hari ini</Pill>
             </div>
           </section>
         </div>
 
-        <CalorieChart target={targets.calories || 2100} />
+        <CalorieChart targets={targets} />
 
         {loadError && (
           <p
