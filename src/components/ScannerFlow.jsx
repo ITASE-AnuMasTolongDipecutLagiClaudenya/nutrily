@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,19 +15,27 @@ import {
   Trash2,
   X,
 } from "lucide-react"
+
 import { useLocation } from "react-router-dom"
+
 import { api } from "../lib/api"
+
 import { useAuth } from "../lib/AuthProvider"
 
 const copy = {
   receipt: {
     title: "Scan struk",
+
     hint: "Arahkan kamera ke daftar belanja. AI hanya mengambil makanan, minuman, dan buah.",
+
     icon: ReceiptText,
   },
+
   label: {
     title: "Scan label produk",
+
     hint: "Arahkan kamera ke tabel informasi gizi pada kemasan.",
+
     icon: ScanLine,
   },
 }
@@ -50,6 +59,7 @@ function Button({ children, className = "", variant = "primary", ...props }) {
 function readSession(storageKey) {
   try {
     const session = JSON.parse(sessionStorage.getItem(storageKey))
+
     return session && Array.isArray(session.items) ? session : null
   } catch {
     return null
@@ -58,37 +68,54 @@ function readSession(storageKey) {
 
 function CameraView({ mode, onCapture, onClose }) {
   const videoRef = useRef(null)
+
   const fileRef = useRef(null)
+
   const [stream, setStream] = useState(null)
+
   const [notice, setNotice] = useState("")
+
   const [scanning, setScanning] = useState(false)
+
   const [previewURL, setPreviewURL] = useState("")
 
   useEffect(
     () => () => {
       if (previewURL) URL.revokeObjectURL(previewURL)
     },
+
     [previewURL],
   )
 
   useEffect(() => {
     let active = true
+
     let cameraStream
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setNotice("Kamera tidak tersedia. Unggah foto untuk melanjutkan.")
+
       return undefined
     }
+
     navigator.mediaDevices
+
       .getUserMedia({
         audio: false,
+
         video: { facingMode: { ideal: "environment" } },
       })
+
       .then((result) => {
         cameraStream = result
+
         if (!active) return result.getTracks().forEach((track) => track.stop())
+
         setStream(result)
+
         if (videoRef.current) videoRef.current.srcObject = result
       })
+
       .catch(
         () =>
           active &&
@@ -96,8 +123,10 @@ function CameraView({ mode, onCapture, onClose }) {
             "Izin kamera tidak tersedia. Unggah foto untuk melanjutkan.",
           ),
       )
+
     return () => {
       active = false
+
       cameraStream?.getTracks().forEach((track) => track.stop())
     }
   }, [])
@@ -108,17 +137,25 @@ function CameraView({ mode, onCapture, onClose }) {
 
   const scan = async (image) => {
     if (!image || scanning) return
+
     if (!/^image\/(jpeg|png)$/.test(image.type)) {
       setNotice("Gunakan foto JPG atau PNG.")
+
       return
     }
+
     if (image.size > 8 * 1024 * 1024) {
       setNotice("Ukuran foto maksimal 8 MB.")
+
       return
     }
+
     setScanning(true)
+
     setNotice("")
+
     setPreviewURL(URL.createObjectURL(image))
+
     try {
       await onCapture(image)
     } catch (error) {
@@ -127,27 +164,37 @@ function CameraView({ mode, onCapture, onClose }) {
       )
     } finally {
       setScanning(false)
+
       if (fileRef.current) fileRef.current.value = ""
     }
   }
 
   const capture = () => {
     const video = videoRef.current
+
     if (!video?.videoWidth) {
       setNotice("Kamera belum siap. Tunggu sebentar atau unggah foto.")
+
       return
     }
+
     const canvas = document.createElement("canvas")
+
     canvas.width = video.videoWidth
+
     canvas.height = video.videoHeight
+
     canvas.getContext("2d").drawImage(video, 0, 0)
+
     canvas.toBlob(
       (blob) => {
         if (blob)
           scan(new File([blob], "nutrily-scan.jpg", { type: "image/jpeg" }))
         else setNotice("Foto gagal diambil. Coba sekali lagi.")
       },
+
       "image/jpeg",
+
       0.92,
     )
   }
@@ -239,6 +286,7 @@ function ScannerLanding({ navigate, start }) {
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {["receipt", "label"].map((mode) => {
           const Icon = copy[mode].icon
+
           return (
             <button
               key={mode}
@@ -267,68 +315,110 @@ function ScannerLanding({ navigate, start }) {
 
 function ScannerFlow({ navigate }) {
   const { pathname } = useLocation()
+
   const { user } = useAuth()
+
   const storageKey = `nutrily:scan-session:${user?.id || "anonymous"}`
+
   const [session, setSession] = useState(null)
+
   const sessionRef = useRef(null)
+
   const [sessionReady, setSessionReady] = useState(false)
+
   const [busy, setBusy] = useState(false)
+
   const [notice, setNotice] = useState("")
+
   const [messages, setMessages] = useState([])
+
   const [messageSessionId, setMessageSessionId] = useState("")
+
   const [question, setQuestion] = useState("")
+
   const [copied, setCopied] = useState(false)
+
   const modeMatch = pathname.match(/^\/scanner\/(receipt|label)(\/confirm)?$/)
+
   const mode = modeMatch?.[1]
+
   const isConfirm = Boolean(modeMatch?.[2])
+
   const summaryId = pathname.match(/^\/scanner\/summary\/([^/]+)$/)?.[1]
+
   const isSummary = Boolean(summaryId)
 
   useEffect(() => {
     const stored = readSession(storageKey)
+
     sessionRef.current = stored
+
     setSession(stored)
+
     setMessages([])
+
     setMessageSessionId("")
+
     setSessionReady(true)
   }, [storageKey])
 
   const saveSession = (next) => {
     sessionRef.current = next
+
     setSession(next)
+
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(next))
     } catch {
       /* session remains available in memory */
     }
   }
+
   const clearSession = () => {
     sessionRef.current = null
+
     setSession(null)
+
     sessionStorage.removeItem(storageKey)
+
     setMessages([])
+
     setMessageSessionId("")
+
     setNotice("")
   }
+
   const start = (nextMode) => {
     const freshSession = {
       mode: nextMode,
+
       items: [],
+
       savedCount: 0,
+
       sessionId: crypto.randomUUID(),
+
       advice: "",
     }
+
     sessionRef.current = freshSession
+
     setSession(freshSession)
+
     setMessages([])
+
     setMessageSessionId(freshSession.sessionId)
+
     setNotice("")
+
     sessionStorage.setItem(storageKey, JSON.stringify(freshSession))
+
     navigate(`/scanner/${nextMode}`)
   }
 
   useEffect(() => {
     if (!sessionReady) return
+
     if (
       (isConfirm &&
         (!session || !session.items?.length || session.mode !== mode)) ||
@@ -339,14 +429,23 @@ function ScannerFlow({ navigate }) {
       navigate("/scanner", { replace: true })
   }, [
     isConfirm,
+
     isSummary,
+
     mode,
+
     navigate,
+
     pathname,
+
     sessionReady,
+
     session?.items?.length,
+
     session?.mode,
+
     session?.sessionId,
+
     summaryId,
   ])
 
@@ -358,31 +457,44 @@ function ScannerFlow({ navigate }) {
       session?.sessionId !== summaryId
     )
       return
+
     let active = true
+
     setMessages([])
+
     setMessageSessionId("")
+
     setMessageSessionId(summaryId)
+
     api(`/chat?conversation_id=${encodeURIComponent(summaryId)}`, {
       method: "GET",
     })
+
       .then((result) => {
         if (!active) return
+
         const history = result.messages || []
+
         const summaryIndex = history.findIndex(
           (item) =>
             item.role === "user" &&
             item.content.startsWith("Saya baru memindai makanan berikut:"),
         )
+
         const conversation =
           summaryIndex >= 0 ? history.slice(summaryIndex + 2) : history
+
         setMessages(
           conversation.map((item) => ({
             from: item.role === "assistant" ? "ai" : "user",
+
             text: item.content,
           })),
         )
       })
+
       .catch((error) => active && setNotice(error.message))
+
     return () => {
       active = false
     }
@@ -390,124 +502,179 @@ function ScannerFlow({ navigate }) {
 
   const scanImage = async (image) => {
     const form = new FormData()
+
     form.append("image", image)
+
     form.append("mode", mode)
+
     const result = await api("/scan", { method: "POST", body: form })
+
     const found = Array.isArray(result.items) ? result.items : []
+
     if (!found.length)
       throw new Error(
         mode === "receipt"
           ? "Tidak ditemukan makanan, minuman, atau buah. Coba foto struk yang lebih jelas."
           : "Hasil label tidak terbaca. Coba foto yang lebih jelas.",
       )
+
     const current =
       sessionRef.current?.mode === mode
         ? sessionRef.current
         : {
             mode,
+
             items: [],
+
             savedCount: 0,
+
             sessionId: crypto.randomUUID(),
+
             advice: "",
           }
+
     saveSession({ ...current, items: [...current.items, ...found] })
+
     navigate(`/scanner/${mode}/confirm`)
   }
 
   const patchItem = (index, patch) =>
     saveSession({
       ...sessionRef.current,
+
       items: sessionRef.current.items.map((item, i) =>
         i === index ? { ...item, ...patch } : item,
       ),
     })
+
   const removeItem = (index) =>
     saveSession({
       ...sessionRef.current,
+
       items: sessionRef.current.items.filter((_, i) => i !== index),
     })
 
   const confirmItems = async () => {
     const current = sessionRef.current
+
     if (!current?.items?.length || busy) return
+
     setBusy(true)
+
     setNotice("")
+
     try {
       const id = current.sessionId || crypto.randomUUID()
+
       let saved = { ...current, sessionId: id }
+
       saveSession(saved)
+
       for (
         let index = saved.savedCount || 0;
         index < saved.items.length;
         index += 1
       ) {
         const item = saved.items[index]
+
         const nutrition = Object.fromEntries(
           [
             "calories",
+
             "protein_g",
+
             "carbs_g",
+
             "fat_g",
+
             "sugar_g",
+
             "sodium_mg",
           ]
+
             .map((key) => [key, item[key]])
+
             .filter(
               ([, value]) =>
                 value != null &&
                 Number.isFinite(Number(value)) &&
                 Number(value) >= 0,
             )
+
             .map(([key, value]) => [key, Number(value)]),
         )
+
         await api("/meals", {
           method: "POST",
+
           body: JSON.stringify({
             name: item.name || "Hasil pemindaian",
+
             ...nutrition,
+
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
           }),
         })
+
         saved = { ...saved, savedCount: index + 1 }
+
         saveSession(saved)
       }
+
       const history = await api(
         `/chat?conversation_id=${encodeURIComponent(id)}`,
+
         { method: "GET" },
       )
+
       let advice =
         history.messages?.at(-1)?.role === "assistant"
           ? history.messages.at(-1).content
           : ""
+
       if (!advice) {
         const lines = saved.items.map(
           (item) =>
             `- ${item.name || "Makanan"} (${item.serving_size || "1 sajian"}): ${item.calories ?? "tidak diketahui"} kcal, protein ${item.protein_g ?? "?"}g, karbo ${item.carbs_g ?? "?"}g, lemak ${item.fat_g ?? "?"}g, gula ${item.sugar_g ?? "?"}g, natrium ${item.sodium_mg ?? "?"}mg`,
         )
+
         const totals = [
           "calories",
+
           "protein_g",
+
           "carbs_g",
+
           "fat_g",
+
           "sugar_g",
+
           "sodium_mg",
         ].map((key) =>
           saved.items.every((item) => item[key] != null)
             ? saved.items.reduce((sum, item) => sum + Number(item[key]), 0)
             : null,
         )
+
         const result = await api("/chat", {
           method: "POST",
+
           body: JSON.stringify({
             conversation_id: id,
+
             message: `Saya baru memindai makanan berikut:\n${lines.join("\n")}\nRingkasan nilai per item telah dikonfirmasi pengguna. Total berturut-turut (kkal, protein g, karbo g, lemak g, gula g, natrium mg): ${totals.map((value) => value ?? "belum lengkap").join(", ")}. Beri saran gizi singkat maksimal 5 poin. Hanya bahas gizi dan kesehatan terkait pemindaian ini.`,
           }),
         })
+
         advice = result.answer
+
         saved = { ...saved, advice }
+
         saveSession(saved)
       }
+
       saveSession({ ...saved, advice })
+
       navigate(`/scanner/summary/${id}`)
     } catch (error) {
       setNotice(error.message || "Ringkasan belum tersimpan. Coba lagi.")
@@ -518,27 +685,40 @@ function ScannerFlow({ navigate }) {
 
   const ask = async (event) => {
     event.preventDefault()
+
     const text = question.trim()
+
     if (!text || busy || !session?.sessionId) return
+
     setBusy(true)
+
     setNotice("")
+
     setQuestion("")
+
     setMessages((items) => [...items, { from: "user", text }])
+
     try {
       const result = await api("/chat", {
         method: "POST",
+
         body: JSON.stringify({
           conversation_id: session.sessionId,
+
           message: text,
         }),
       })
+
       setMessages((items) => [...items, { from: "ai", text: result.answer }])
+
       setMessageSessionId(session.sessionId)
     } catch (error) {
       setNotice(error.message)
+
       setMessages((items) =>
         items.filter((item) => !(item.from === "user" && item.text === text)),
       )
+
       setQuestion(text)
     } finally {
       setBusy(false)
@@ -565,6 +745,7 @@ function ScannerFlow({ navigate }) {
           {/** Keep confirmed items immutable after a partial save so retry cannot duplicate meals. */}
           {(() => {
             const locked = (session.savedCount || 0) > 0
+
             return (
               <>
                 <p className="text-sm font-semibold text-sky-600">
@@ -635,10 +816,15 @@ function ScannerFlow({ navigate }) {
                         <div className="mt-3 grid grid-cols-3 gap-x-4 sm:grid-cols-6">
                           {[
                             ["Kalori", item.calories, "kkal"],
+
                             ["Protein", item.protein_g, "g"],
+
                             ["Karbo", item.carbs_g, "g"],
+
                             ["Lemak", item.fat_g, "g"],
+
                             ["Gula", item.sugar_g, "g"],
+
                             ["Natrium", item.sodium_mg, "mg"],
                           ].map(([label, value, unit]) => (
                             <div
@@ -739,19 +925,26 @@ function ScannerFlow({ navigate }) {
               <div className="mt-3 grid grid-cols-2 gap-x-5">
                 {[
                   ["Energi", "calories", "kkal"],
+
                   ["Protein", "protein_g", "g"],
+
                   ["Karbohidrat", "carbs_g", "g"],
+
                   ["Lemak", "fat_g", "g"],
+
                   ["Gula", "sugar_g", "g"],
+
                   ["Natrium", "sodium_mg", "mg"],
                 ].map(([label, key, unit]) => {
                   const known = session.items.filter(
                     (item) =>
                       Number.isFinite(Number(item[key])) && item[key] != null,
                   )
+
                   const total = known.length
                     ? known.reduce((sum, item) => sum + Number(item[key]), 0)
                     : null
+
                   return (
                     <div className="border-b border-slate-100 py-3" key={key}>
                       <p className="text-xs text-slate-500">{label}</p>
@@ -787,7 +980,9 @@ function ScannerFlow({ navigate }) {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(session.sessionId)
+
                       setCopied(true)
+
                       setTimeout(() => setCopied(false), 1500)
                     } catch {
                       setNotice("ID sesi tidak dapat disalin.")
@@ -883,17 +1078,14 @@ function ScannerFlow({ navigate }) {
             </Button>
             <Button
               variant="secondary"
-              onClick={() =>
-                navigate(
-                  `/chat?conversation_id=${encodeURIComponent(summaryId)}`,
-                )
-              }
+              onClick={() => navigate(`/chat/${summaryId}`)}
             >
               <Sparkles className="size-4" /> Lanjutkan konsultasi di chat
             </Button>
             <Button
               onClick={() => {
                 clearSession()
+
                 navigate("/scanner")
               }}
             >

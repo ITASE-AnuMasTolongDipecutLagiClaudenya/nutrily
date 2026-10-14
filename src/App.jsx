@@ -6,6 +6,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom"
 
 import { createPortal } from "react-dom"
@@ -98,6 +99,7 @@ const cn = (...classes) => classes.filter(Boolean).join(" ")
 const newConversationId = () =>
   "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
     const random = Math.floor(Math.random() * 16)
+
     return (character === "x" ? random : (random & 0x3) | 0x8).toString(16)
   })
 
@@ -149,9 +151,19 @@ function Button({
 function Brand({ compact = false, light = false, logo = false }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className={cn("grid size-9 place-items-center", !logo && "rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200")}>
+      <div
+        className={cn(
+          "grid size-9 place-items-center",
+          !logo && "rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200",
+        )}
+      >
         {logo ? (
-          <img alt="" aria-hidden="true" className="size-9 object-contain" src={`${import.meta.env.BASE_URL}logo-biru.png`} />
+          <img
+            alt=""
+            aria-hidden="true"
+            className="size-9 object-contain"
+            src={`${import.meta.env.BASE_URL}logo-biru.png`}
+          />
         ) : (
           <Leaf className="size-5" strokeWidth={2.4} />
         )}
@@ -249,9 +261,13 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
   const nutrients = targets
     ? [
         ["Protein", targets.protein_g, "g"],
+
         ["Lemak total", targets.fat_g, "g"],
+
         ["Karbohidrat", targets.carbs_g, "g"],
+
         ["Gula (maks.)", targets.sugar_g, "g"],
+
         ["Natrium (maks.)", targets.sodium_mg, "mg"],
       ]
     : []
@@ -321,6 +337,7 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
         <div
           className={cn(
             "absolute left-0 z-20 w-full rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-[0_20px_48px_-20px_rgba(15,23,42,.28)] backdrop-blur-xl",
+
             dropdownOpensDown
               ? "bottom-full mb-2 lg:top-full lg:bottom-auto lg:mt-2 lg:mb-0"
               : "bottom-full mb-2 lg:top-auto lg:bottom-full lg:mt-0 lg:mb-2",
@@ -561,12 +578,15 @@ function NutrilyHero() {
 
 function LandingNav({ navigate }) {
   const [scrolled, setScrolled] = useState(false)
+
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 24)
+
       const max = document.documentElement.scrollHeight - window.innerHeight
+
       setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0)
     }
 
@@ -651,6 +671,7 @@ function Landing({ navigate }) {
   const footerRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
+
   const landingRef = useRef(null)
 
   useEffect(() => {
@@ -707,34 +728,53 @@ function Landing({ navigate }) {
   useEffect(() => {
     if (loading) {
       document.body.style.overflow = "hidden"
+
       window.__lenis?.stop()
     } else {
       document.body.style.overflow = ""
+
       window.__lenis?.start()
+
       if (landingRef.current) {
         gsap.fromTo(
           landingRef.current,
+
           { opacity: 0, y: 60, scale: 1.04, filter: "blur(12px)" },
+
           {
             opacity: 1,
+
             y: 0,
+
             scale: 1,
+
             filter: "blur(0px)",
+
             duration: 1.3,
+
             ease: "power4.out",
+
             clearProps: "transform,filter",
           },
         )
+
         gsap.fromTo(".hero-reveal", { opacity: 0, y: 48 }, {
           opacity: 1,
+
           y: 0,
+
           duration: 1,
+
           stagger: 0.12,
+
           ease: "power3.out",
+
           delay: 0.25,
+
           clearProps: "transform",
         })
       }
+
       ScrollTrigger.refresh()
     }
   }, [loading])
@@ -843,6 +883,7 @@ function Auth({ navigate }) {
   const [notice, setNotice] = useState("")
 
   const [turnstileToken, setTurnstileToken] = useState("")
+
   const [turnstileKey, setTurnstileKey] = useState(0)
 
   const user = useAuth().user
@@ -893,8 +934,11 @@ function Auth({ navigate }) {
       if (error) throw error
     } catch (error) {
       setNotice(error.message || "Google OAuth gagal.")
+
       setTurnstileToken("")
+
       setTurnstileKey((key) => key + 1)
+
       setBusy(false)
     }
   }
@@ -939,11 +983,13 @@ function Auth({ navigate }) {
             key={turnstileKey}
             onError={() => {
               setTurnstileToken("")
+
               setNotice("Turnstile gagal dimuat. Muat ulang halaman.")
             }}
             onExpired={() => setTurnstileToken("")}
             onVerify={(token) => {
               setNotice("")
+
               setTurnstileToken(token)
             }}
           />
@@ -978,7 +1024,9 @@ function Auth({ navigate }) {
           <div className="mt-3 grid grid-cols-1 gap-2 xl:mt-8 xl:gap-3">
             {[
               [ScanLine, "Pindai label makanan"],
+
               [Bot, "Tanya AI gizi"],
+
               [TrendingUp, "Pantau perkembanganmu"],
             ].map(([Icon, text]) => (
               <div
@@ -1019,10 +1067,15 @@ function Auth({ navigate }) {
 
 function ChoiceCard({
   active,
+
   icon: Icon,
+
   title,
+
   description,
+
   onClick,
+
   className,
 }) {
   return (
@@ -1030,6 +1083,7 @@ function ChoiceCard({
       aria-pressed={active}
       className={cn(
         "group relative flex min-h-32 w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 ease-out focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:gap-4 sm:p-5",
+
         className,
 
         active
@@ -1107,10 +1161,14 @@ function Onboarding({ navigate }) {
   const [previewTargets, setPreviewTargets] = useState(null)
 
   const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
+
   const stepDescriptions = [
     "Tentukan acuan dasarmu",
+
     "Berat dan tinggi badan",
+
     "Rutinitas selama seminggu",
+
     "Pilih tujuan gizimu",
   ]
 
@@ -1136,13 +1194,17 @@ function Onboarding({ navigate }) {
       })
 
       .catch((error) => setNotice(error.message))
+
       .finally(() => setProfileLoaded(true))
   }, [])
 
   useEffect(() => {
     const years = Number(age)
+
     const kilograms = Number(weight)
+
     const centimeters = Number(height)
+
     if (
       !Number.isInteger(years) ||
       years < 13 ||
@@ -1160,32 +1222,46 @@ function Onboarding({ navigate }) {
       (gender === "Wanita" && !status)
     ) {
       setPreviewTargets(null)
+
       return
     }
 
     let active = true
+
     setPreviewTargets(null)
+
     const timer = window.setTimeout(() => {
       api("/targets", {
         method: "POST",
+
         body: JSON.stringify({
           age: years,
+
           gender,
+
           pregnancy_status: gender === "Wanita" ? status : null,
+
           weight_kg: kilograms,
+
           height_cm: centimeters,
+
           activity,
+
           is_gym: isGym,
+
           goal,
         }),
       })
+
         .then((result) => {
           if (active)
             setPreviewTargets({ ...result.targets, addition: result.addition })
         })
+
         .catch((error) => {
           if (active) {
             setPreviewTargets(null)
+
             setNotice(error.message)
           }
         })
@@ -1193,56 +1269,80 @@ function Onboarding({ navigate }) {
 
     return () => {
       active = false
+
       window.clearTimeout(timer)
     }
   }, [age, gender, status, weight, height, activity, isGym, goal])
 
   useEffect(() => {
     if (!notice) return
+
     const timer = window.setTimeout(() => setNotice(""), 4500)
+
     return () => window.clearTimeout(timer)
   }, [notice])
 
   const validateStep = (stepIndex) =>
     validateOnboardingStep(stepIndex, {
       age,
+
       gender,
+
       status,
+
       weight,
+
       height,
+
       activity,
+
       isGym,
+
       goal,
     })
 
   const formStarted = hasOnboardingInput({
     age,
+
     gender,
+
     status,
+
     weight,
+
     height,
+
     activity,
+
     isGym,
+
     goal,
   })
+
   const dropdownOpensDown = profileLoaded && (!formStarted || !previewTargets)
 
   const finishOnboarding = async () => {
     for (let index = 0; index < steps.length; index += 1) {
       const error = validateStep(index)
+
       if (error) {
         setStep(index)
+
         setNotice(error)
+
         return
       }
     }
 
     const years = Number(age)
+
     const kilograms = Number(weight)
+
     const centimeters = Number(height)
 
     if (!Number.isInteger(years) || years < 13 || years > 120) {
       setStep(0)
+
       setNotice("Masukkan usia antara 13 hingga 120 tahun.")
 
       return
@@ -1257,6 +1357,7 @@ function Onboarding({ navigate }) {
       centimeters > 275
     ) {
       setStep(1)
+
       setNotice("Periksa kembali berat dan tinggi badanmu.")
 
       return
@@ -1301,12 +1402,15 @@ function Onboarding({ navigate }) {
 
   const continueStep = () => {
     const error = validateStep(step)
+
     if (error) {
       setNotice(error)
+
       return
     }
 
     setNotice("")
+
     setStep((current) => Math.min(3, current + 1))
   }
 
@@ -1321,12 +1425,15 @@ function Onboarding({ navigate }) {
                 user?.user_metadata?.full_name ||
                 user?.email?.split("@")[0] ||
                 "Profil Nutrily",
+
               email: user?.email || "",
+
               avatar: user?.user_metadata?.avatar_url || "",
             }}
             onProfile={() => navigate("/onboarding")}
             onSignOut={async () => {
               await supabase?.auth.signOut()
+
               navigate("/")
             }}
           />
@@ -1346,6 +1453,7 @@ function Onboarding({ navigate }) {
                     aria-hidden="true"
                     className={cn(
                       "absolute bottom-[-1.875rem] left-[1.875rem] top-[1.875rem] z-0 w-px",
+
                       index < step ? "bg-emerald-300" : "bg-slate-200",
                     )}
                   />
@@ -1355,6 +1463,7 @@ function Onboarding({ navigate }) {
                   disabled={index > step}
                   className={cn(
                     "relative z-10 flex min-h-[4.5rem] w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
+
                     index === step
                       ? "bg-white shadow-sm ring-1 ring-sky-100"
                       : index < step
@@ -1363,6 +1472,7 @@ function Onboarding({ navigate }) {
                   )}
                   onClick={() => {
                     setNotice("")
+
                     setStep(index)
                   }}
                   type="button"
@@ -1370,6 +1480,7 @@ function Onboarding({ navigate }) {
                   <span
                     className={cn(
                       "relative grid size-9 shrink-0 place-items-center rounded-full border text-xs font-semibold transition duration-200",
+
                       index < step
                         ? "border-emerald-500 bg-emerald-500 text-white"
                         : index === step
@@ -1401,6 +1512,7 @@ function Onboarding({ navigate }) {
                     <span
                       className={cn(
                         "block text-[13px] font-semibold leading-5",
+
                         index === step ? "text-sky-800" : "text-slate-700",
                       )}
                     >
@@ -1434,6 +1546,7 @@ function Onboarding({ navigate }) {
                 currentStep={step}
                 onStepChange={(nextStep) => {
                   setNotice("")
+
                   setStep(nextStep)
                 }}
                 steps={steps}
@@ -1469,6 +1582,7 @@ function Onboarding({ navigate }) {
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   { name: "Pria", icon: UserRound },
+
                   { name: "Wanita", icon: UserRound },
                 ].map(({ name, icon }) => (
                   <ChoiceCard
@@ -1492,10 +1606,15 @@ function Onboarding({ navigate }) {
                   <div className="grid gap-2 sm:grid-cols-2">
                     {[
                       "Tidak ada",
+
                       "Trimester 1",
+
                       "Trimester 2",
+
                       "Trimester 3",
+
                       "Menyusui 6 bulan pertama",
+
                       "Menyusui 6 bulan kedua",
                     ].map((item) => (
                       <button
@@ -1515,6 +1634,7 @@ function Onboarding({ navigate }) {
                         <span
                           className={cn(
                             "grid size-4 shrink-0 place-items-center rounded-full border transition",
+
                             status === item
                               ? "border-sky-500 bg-sky-500 text-white"
                               : "border-slate-300 bg-white text-transparent group-hover:border-sky-300",
@@ -1594,11 +1714,16 @@ function Onboarding({ navigate }) {
               <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 {[
                   ["Minim gerak", "Lebih banyak duduk dan jarang berolahraga"],
+
                   ["Ringan", "Olahraga ringan 1–3 hari per minggu"],
+
                   ["Sedang", "Berolahraga 3–5 hari per minggu"],
+
                   ["Sangat aktif", "Olahraga berat 6–7 hari per minggu"],
+
                   [
                     "Aktivitas fisik berat",
+
                     "Pekerjaan atau latihan fisik berat",
                   ],
                 ].map(([title, text]) => (
@@ -1625,6 +1750,7 @@ function Onboarding({ navigate }) {
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   [true, "Ya, rutin gym"],
+
                   [false, "Tidak rutin gym"],
                 ].map(([value, title]) => (
                   <ChoiceCard
@@ -1693,6 +1819,7 @@ function Onboarding({ navigate }) {
               disabled={step === 0 || saving}
               onClick={() => {
                 setNotice("")
+
                 setStep((current) => Math.max(0, current - 1))
               }}
               variant="secondary"
@@ -2076,16 +2203,25 @@ function OnboardingLegacy({ navigate }) {
 
 function AppShell({
   children,
+
   active,
+
   navigate,
+
   minimal = false,
+
   scannerBack = false,
+
   camera = false,
 }) {
   const { user } = useAuth()
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
   const [sidebarHovered, setSidebarHovered] = useState(false)
+
   const [suppressSidebarHover, setSuppressSidebarHover] = useState(false)
+
   const sidebarExpanded =
     !sidebarCollapsed || (sidebarHovered && !suppressSidebarHover)
 
@@ -2105,7 +2241,9 @@ function AppShell({
         <aside
           className={cn(
             "group fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-100 bg-white p-5 font-poppins font-semibold transition-[width,box-shadow,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:flex",
+
             sidebarExpanded ? "w-64 px-5" : "w-20 px-2",
+
             sidebarCollapsed &&
               sidebarExpanded &&
               "shadow-[12px_0_40px_-18px_rgba(14,165,233,0.35)]",
@@ -2113,12 +2251,14 @@ function AppShell({
           onMouseEnter={() => setSidebarHovered(true)}
           onMouseLeave={() => {
             setSidebarHovered(false)
+
             setSuppressSidebarHover(false)
           }}
         >
           <div
             className={cn(
               "flex items-center py-2",
+
               sidebarExpanded ? "justify-between" : "justify-center",
             )}
           >
@@ -2131,11 +2271,14 @@ function AppShell({
               }
               className={cn(
                 "grid shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white to-sky-50 text-sky-700 shadow-sm ring-1 ring-sky-100 transition-all duration-300 hover:scale-105 hover:rotate-[-3deg] hover:shadow-md hover:shadow-sky-200/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 motion-reduce:transition-none",
+
                 sidebarExpanded ? "size-10" : "size-7",
               )}
               onClick={() => {
                 const collapse = !sidebarCollapsed
+
                 setSidebarCollapsed(collapse)
+
                 setSuppressSidebarHover(collapse && sidebarHovered)
               }}
               title={
@@ -2155,7 +2298,9 @@ function AppShell({
                 aria-label={sidebarCollapsed ? label : undefined}
                 className={cn(
                   "group/item flex w-full items-center rounded-xl py-3 text-xs font-normal transition-all duration-300 ease-out hover:translate-x-1 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:text-sky-700 hover:shadow-[0_8px_20px_-14px_rgba(14,165,233,0.8)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 motion-reduce:transition-none",
+
                   !sidebarExpanded ? "justify-center px-0" : "gap-3 px-3",
+
                   active === screen
                     ? "bg-gradient-to-r from-sky-50 via-sky-50 to-indigo-50 text-sky-700 shadow-sm ring-1 ring-sky-100"
                     : "text-slate-500",
@@ -2168,7 +2313,9 @@ function AppShell({
                 <span
                   className={cn(
                     "overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-300 ease-out motion-reduce:transition-none",
+
                     !sidebarExpanded && "max-w-0 -translate-x-2 opacity-0",
+
                     sidebarExpanded && "max-w-48 translate-x-0 opacity-100",
                   )}
                 >
@@ -2181,6 +2328,7 @@ function AppShell({
             aria-label="Buka sidebar secara permanen"
             className={cn(
               "mt-auto flex min-w-0 items-center rounded-xl border-t border-slate-100 pt-3 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100",
+
               !sidebarExpanded ? "mx-auto" : "gap-2.5 px-2",
             )}
             onClick={() => setSidebarCollapsed(false)}
@@ -2191,6 +2339,7 @@ function AppShell({
             <span
               className={cn(
                 "text-xl font-semibold tracking-tight text-slate-900",
+
                 !sidebarExpanded && "hidden",
               )}
             >
@@ -2206,6 +2355,7 @@ function AppShell({
             : sidebarExpanded
               ? "lg:pl-64"
               : "lg:pl-20",
+
           !minimal &&
             "transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         )}
@@ -2214,6 +2364,7 @@ function AppShell({
           <header
             className={cn(
               "sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8",
+
               active === "dashboard" ? "h-20" : "h-16",
             )}
           >
@@ -2239,12 +2390,15 @@ function AppShell({
                       user?.user_metadata?.full_name ||
                       user?.email?.split("@")[0] ||
                       "Profil Nutrily",
+
                     email: user?.email || "",
+
                     avatar: user?.user_metadata?.avatar_url || "",
                   }}
                   onProfile={() => navigate("/onboarding")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
+
                     navigate("/login")
                   }}
                 />
@@ -2277,12 +2431,15 @@ function AppShell({
                       user?.user_metadata?.full_name ||
                       user?.email?.split("@")[0] ||
                       "Profil Nutrily",
+
                     email: user?.email || "",
+
                     avatar: user?.user_metadata?.avatar_url || "",
                   }}
                   onProfile={() => navigate("/onboarding")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
+
                     navigate("/login")
                   }}
                 />
@@ -2298,17 +2455,22 @@ function AppShell({
           <LimelightNav
             activeIndex={Math.max(
               0,
+
               items.findIndex(([screen]) => screen === active),
             )}
             className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-50 h-16 w-[92vw] -translate-x-1/2 rounded-2xl border-slate-200 bg-white/95 shadow-[0_12px_36px_-14px_rgba(15,23,42,0.3)] backdrop-blur lg:hidden"
             iconContainerClassName="flex-1 px-3"
             items={items.map(([screen, label, Icon]) => ({
               id: screen,
+
               icon: <Icon />,
+
               label,
+
               onClick: () => navigate(screen),
             }))}
           />,
+
           document.body,
         )}
     </div>
@@ -2319,45 +2481,68 @@ function Dashboard({ navigate }) {
   const [summary, setSummary] = useState(null)
 
   const [loadError, setLoadError] = useState("")
+
   const [featureLoadError, setFeatureLoadError] = useState("")
+
   const [featureUsage, setFeatureUsage] = useState({
     label: 0,
+
     receipt: 0,
+
     chatbot: 0,
   })
+
   const { user } = useAuth()
 
   useEffect(() => {
     let active = true
+
     const onFeatureUsage = (event) => {
       if (event.detail?.userId !== user?.id) return
+
       api("/features")
+
         .then((usage) => {
           if (!active) return
+
           setFeatureUsage(usage)
+
           setFeatureLoadError("")
         })
+
         .catch((error) => active && setFeatureLoadError(error.message))
     }
+
     window.addEventListener("nutrily:feature-usage", onFeatureUsage)
+
     return () => {
       active = false
+
       window.removeEventListener("nutrily:feature-usage", onFeatureUsage)
     }
   }, [user?.id])
 
   useEffect(() => {
     let active = true
+
     api("/dashboard")
+
       .then((result) => active && setSummary(result))
+
       .catch((error) => active && setLoadError(error.message))
+
     api("/features")
+
       .then((usage) => {
         if (!active) return
+
         setFeatureUsage(usage)
+
         setFeatureLoadError("")
       })
+
       .catch((error) => active && setFeatureLoadError(error.message))
+
     return () => {
       active = false
     }
@@ -2370,38 +2555,63 @@ function Dashboard({ navigate }) {
   const macros = [
     [
       "Kalori",
+
       totals.calories || 0,
+
       targets.calories || 2100,
+
       "kcal",
+
       "bg-sky-500",
     ],
+
     [
       "Protein",
+
       totals.protein_g || 0,
+
       targets.protein_g || 100,
+
       "g",
+
       "bg-violet-500",
     ],
+
     ["Lemak", totals.fat_g || 0, targets.fat_g || 70, "g", "bg-amber-400"],
+
     [
       "Karbohidrat",
+
       totals.carbs_g || 0,
+
       targets.carbs_g || 260,
+
       "g",
+
       "bg-emerald-500",
     ],
+
     [
       "Gula total",
+
       totals.sugar_g || 0,
+
       targets.sugar_g || 50,
+
       "g",
+
       "bg-rose-400",
     ],
+
     [
       "Natrium",
+
       totals.sodium_mg || 0,
+
       targets.sodium_mg || 2000,
+
       "mg",
+
       "bg-orange-500",
     ],
   ].map(([name, current, target, unit, color]) => ({
@@ -2425,6 +2635,7 @@ function Dashboard({ navigate }) {
 
     { name: "Karbohidrat", value: totals.carbs_g, color: "#10B981" },
   ].filter(({ value }) => value > 0)
+
   const donutData = chartData.length
     ? chartData
     : [{ name: "Belum ada data", value: 1, color: "#e2e8f0" }]
@@ -2663,25 +2874,39 @@ function Dashboard({ navigate }) {
                 data={[
                   {
                     id: "label",
+
                     label: "Scan label produk",
+
                     value: featureUsage.label,
+
                     color: 1,
+
                     icon: <ScanLine className="size-4 shrink-0 text-sky-600" />,
                   },
+
                   {
                     id: "receipt",
+
                     label: "Scan struk",
+
                     value: featureUsage.receipt,
+
                     color: 3,
+
                     icon: (
                       <ReceiptText className="size-4 shrink-0 text-emerald-600" />
                     ),
                   },
+
                   {
                     id: "chatbot",
+
                     label: "Chatbot",
+
                     value: featureUsage.chatbot,
+
                     color: 2,
+
                     icon: <Bot className="size-4 shrink-0 text-violet-600" />,
                   },
                 ]}
@@ -3341,9 +3566,12 @@ function LegacyScanner({ navigate }) {
 
 function Scanner({ navigate }) {
   const { pathname } = useLocation()
+
   const isScannerHome = pathname === "/scanner"
+
   const isCamera =
     pathname === "/scanner/receipt" || pathname === "/scanner/label"
+
   return (
     <AppShell
       active="scanner"
@@ -3357,11 +3585,24 @@ function Scanner({ navigate }) {
   )
 }
 
-function Chat({ navigate }) {
-  const { search } = useLocation()
-  const requestedConversationId = new URLSearchParams(search).get(
-    "conversation_id",
+function ChatRoute({ navigate }) {
+  const { conversationId } = useParams()
+
+  return (
+    <ProtectedRoute>
+      <Chat
+        key={conversationId || "new"}
+        navigate={navigate}
+        routeConversationId={conversationId}
+      />
+    </ProtectedRoute>
   )
+}
+
+function Chat({ navigate, routeConversationId }) {
+  const { search } = useLocation()
+  const requestedConversationId =
+    routeConversationId || new URLSearchParams(search).get("conversation_id")
   const [message, setMessage] = useState("")
 
   const [image, setImage] = useState(null)
@@ -3373,7 +3614,7 @@ function Chat({ navigate }) {
   const [messages, setMessages] = useState([])
 
   const [conversationId, setConversationId] = useState(
-    () => requestedConversationId || newConversationId(),
+    () => routeConversationId || requestedConversationId || "",
   )
 
   const [conversations, setConversations] = useState([])
@@ -3392,6 +3633,7 @@ function Chat({ navigate }) {
 
   useEffect(
     () => () => imageUrls.current.forEach((url) => URL.revokeObjectURL(url)),
+
     [],
   )
 
@@ -3399,88 +3641,74 @@ function Chat({ navigate }) {
     api("/conversations")
       .then((items) => setConversations(Array.isArray(items) ? items : []))
       .catch((error) => setNotice(error.message))
-    if (requestedConversationId) {
-      api(
-        `/chat?conversation_id=${encodeURIComponent(requestedConversationId)}`,
-      )
-        .then((result) => {
-          setConversationId(requestedConversationId)
-          setMessages(
-            (Array.isArray(result?.messages) ? result.messages : [])
-              .filter(Boolean)
-              .map((item) => ({
-                from: item.role === "assistant" ? "ai" : "user",
-                text: item.content || "",
-              })),
-          )
-        })
-        .catch((error) => setNotice(error.message))
-    }
   }, [])
 
   useEffect(() => {
+    if (!requestedConversationId) return
+    let active = true
+    setConversationId(requestedConversationId)
+    setMessages([])
+    api(`/chat?conversation_id=${encodeURIComponent(requestedConversationId)}`)
+      .then((result) => {
+        if (!active) return
+        setMessages(
+          (Array.isArray(result?.messages) ? result.messages : [])
+            .filter(Boolean)
+            .map((item) => ({
+              from: item.role === "assistant" ? "ai" : "user",
+              text: item.content || "",
+            })),
+        )
+      })
+      .catch((error) => active && setNotice(error.message))
+    return () => {
+      active = false
+    }
+  }, [requestedConversationId])
+
+  useEffect(() => {
+    if (!routeConversationId && requestedConversationId)
+      navigate(`/chat/${requestedConversationId}`, { replace: true })
+  }, [navigate, requestedConversationId, routeConversationId])
+
+  useEffect(() => {
     const panel = messagesPanel.current
+
     if (panel) panel.scrollTop = panel.scrollHeight
   }, [messages])
 
-  const openConversation = async (id) => {
+  const openConversation = (id) => {
     setNotice("")
 
     setShowMobileChats(false)
-
-    try {
-      const result = await api(
-        `/chat?conversation_id=${encodeURIComponent(id)}`,
-      )
-
-      setConversationId(id)
-
-      setMessages(
-        (Array.isArray(result?.messages) ? result.messages : [])
-          .filter(Boolean)
-          .map((item) => ({
-            from: item.role === "assistant" ? "ai" : "user",
-            text: item.content || "",
-          })),
-      )
-    } catch (error) {
-      setNotice(error.message)
-    }
+    navigate(`/chat/${id}`)
   }
 
   const startNewChat = () => {
-    setConversationId(newConversationId())
-    navigate("/chat", { replace: true })
-
-    setMessages([
-      {
-        from: "ai",
-
-        text: "Percakapan baru. Ada yang ingin kamu tanyakan tentang makanan atau gizimu?",
-      },
-    ])
-
+    setConversationId("")
+    setMessages([])
     setMessage("")
-
-    setNotice("")
-
-    setShowMobileChats(false)
-
     setImage(null)
+    setNotice("")
+    navigate("/chat", { replace: true })
   }
 
   const deleteConversation = async (id) => {
     if (!window.confirm("Hapus riwayat percakapan ini?")) return
+
     setDeletingId(id)
+
     setNotice("")
+
     try {
       await api(`/conversations?conversation_id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       })
+
       setConversations((items) => items.filter((item) => item.id !== id))
       setShowMobileChats(false)
       if (conversationId === id) {
-        setConversationId(newConversationId())
+        setConversationId("")
         setMessages([])
         setMessage("")
         setImage(null)
@@ -3495,19 +3723,29 @@ function Chat({ navigate }) {
 
   const chooseImage = (event) => {
     const file = event.target.files?.[0]
+
     event.target.value = ""
+
     if (!file) return
+
     if (!/^image\/(jpeg|png)$/.test(file.type)) {
       setNotice("Gunakan gambar JPG atau PNG.")
+
       return
     }
+
     if (file.size > 8 * 1024 * 1024) {
       setNotice("Ukuran gambar maksimal 8 MB.")
+
       return
     }
+
     const url = URL.createObjectURL(file)
+
     imageUrls.current.push(url)
+
     setImage({ file, url })
+
     setNotice("")
   }
 
@@ -3517,10 +3755,15 @@ function Chat({ navigate }) {
     if ((!message.trim() && !image) || sending) return
 
     const question = message.trim()
+    const activeConversationId = conversationId || newConversationId()
+
+    setConversationId(activeConversationId)
 
     const userMessage = {
       from: "user",
+
       text: question,
+
       imageUrl: image?.url,
     }
 
@@ -3538,14 +3781,23 @@ function Chat({ navigate }) {
       const body = image
         ? (() => {
             const form = new FormData()
+
             form.append("message", question)
-            form.append("conversation_id", conversationId)
+
+            form.append("conversation_id", activeConversationId)
+
             form.append("image", image.file)
+
             return form
           })()
-        : JSON.stringify({ message: question, conversation_id: conversationId })
+        : JSON.stringify({
+            message: question,
+            conversation_id: activeConversationId,
+          })
+
       const result = await api("/chat", {
         method: "POST",
+
         body,
       })
 
@@ -3555,8 +3807,10 @@ function Chat({ navigate }) {
         { from: "ai", text: result.answer },
       ])
 
-      const items = await api("/conversations")
-      setConversations(Array.isArray(items) ? items : [])
+      const items = await api("/conversations").catch(() => null)
+      if (items) setConversations(Array.isArray(items) ? items : [])
+      if (!routeConversationId)
+        navigate(`/chat/${activeConversationId}`, { replace: true })
     } catch (error) {
       setNotice(error.message)
 
@@ -3572,10 +3826,11 @@ function Chat({ navigate }) {
 
   return (
     <AppShell active="chat" navigate={navigate}>
-      <main className="h-dvh overflow-hidden bg-white">
+      <main className="h-dvh overflow-hidden bg-white" data-lenis-prevent>
         <div
           className={cn(
             "relative mx-auto grid h-full max-w-[1600px] overflow-hidden bg-white",
+
             sidebarOpen
               ? "lg:grid-cols-[260px_minmax(0,1fr)]"
               : "lg:grid-cols-[0_minmax(0,1fr)]",
@@ -3584,6 +3839,7 @@ function Chat({ navigate }) {
           <aside
             className={cn(
               "hidden min-h-0 overflow-hidden border-r border-slate-100 bg-[#f9f9f9] p-3 lg:flex lg:flex-col",
+
               !sidebarOpen && "border-0 p-0",
             )}
             aria-hidden={!sidebarOpen}
@@ -3599,7 +3855,10 @@ function Chat({ navigate }) {
             <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-500">
               Riwayat percakapan
             </p>
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            <div
+              className="min-h-0 flex-1 space-y-1 overflow-y-auto"
+              data-lenis-prevent
+            >
               {conversations.map((item) => (
                 <div className="flex items-start gap-1" key={item.id}>
                   <button
@@ -3608,6 +3867,7 @@ function Chat({ navigate }) {
                     }
                     className={cn(
                       "min-w-0 flex-1 truncate rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-slate-200/70",
+
                       conversationId === item.id
                         ? "bg-slate-200/70 font-semibold text-slate-800"
                         : "text-slate-700",
@@ -3675,12 +3935,14 @@ function Chat({ navigate }) {
                 <span className="hidden text-xs text-slate-400 sm:block">
                   Asisten gizi personal
                 </span>
-                <span
-                  className="max-w-24 truncate font-mono text-[10px] text-slate-400 sm:max-w-36"
-                  title={`ID sesi: ${conversationId}`}
-                >
-                  ID: {conversationId.slice(0, 8)}
-                </span>
+                {conversationId && (
+                  <span
+                    className="max-w-24 truncate font-mono text-[10px] text-slate-400 sm:max-w-36"
+                    title={`ID sesi: ${conversationId}`}
+                  >
+                    ID: {conversationId.slice(0, 8)}
+                  </span>
+                )}
                 <button
                   aria-label="Kembali ke ringkasan"
                   className="grid size-9 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
@@ -3694,7 +3956,10 @@ function Chat({ navigate }) {
             </header>
 
             {showMobileChats && (
-              <div className="absolute inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-slate-100 bg-white p-4 shadow-lg lg:hidden">
+              <div
+                className="absolute inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-slate-100 bg-white p-4 shadow-lg lg:hidden"
+                data-lenis-prevent
+              >
                 <Button
                   className="w-full"
                   onClick={startNewChat}
@@ -3737,7 +4002,8 @@ function Chat({ navigate }) {
             )}
 
             <div
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 sm:px-8"
+              data-lenis-prevent
               ref={messagesPanel}
             >
               <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end">
@@ -4168,14 +4434,12 @@ export default function App() {
         }
         path="/scanner/summary/:sessionId"
       />
+      <Route element={<ChatRoute navigate={go} />} path="/chat" />
       <Route
-        element={
-          <ProtectedRoute>
-            <Chat navigate={go} />
-          </ProtectedRoute>
-        }
-        path="/chat"
+        element={<ChatRoute navigate={go} />}
+        path="/chat/:conversationId"
       />
+      <Route element={<ChatRoute navigate={go} />} path="*" />
       <Route
         element={
           <ProtectedRoute>
@@ -4184,7 +4448,6 @@ export default function App() {
         }
         path="/meals"
       />
-      <Route element={<Navigate replace to="/" />} path="*" />
     </Routes>
   )
 }
