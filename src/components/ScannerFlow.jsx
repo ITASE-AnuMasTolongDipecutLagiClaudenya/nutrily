@@ -417,37 +417,36 @@ function ScannerFlow({ navigate }) {
   }
 
   useEffect(() => {
-    if (!sessionReady) return
+    if (!sessionReady || !isSummary || !summaryId || session?.sessionId === summaryId) return
+    let active = true
+    api(`/meals?scan_session_id=${encodeURIComponent(summaryId)}`)
+      .then((items) => {
+        if (!active) return
+        if (!items.length) {
+          navigate("/scanner", { replace: true })
+          return
+        }
+        const restored = {
+          sessionId: summaryId,
+          mode: items[0].scan_mode || "label",
+          items: items.map(({ name, serving_size, calories, protein_g, carbs_g, fat_g, sugar_g, sodium_mg }) => ({ name, serving_size, calories, protein_g, carbs_g, fat_g, sugar_g, sodium_mg })),
+          savedCount: items.length,
+          advice: "",
+        }
+        saveSession(restored)
+      })
+      .catch((error) => active && setNotice(error.message))
+    return () => { active = false }
+  }, [isSummary, navigate, session?.sessionId, sessionReady, summaryId])
 
+  useEffect(() => {
     if (
-      (isConfirm &&
-        (!session || !session.items?.length || session.mode !== mode)) ||
-      (isSummary && session?.sessionId !== summaryId)
+      !sessionReady ||
+      (isConfirm && (!session || !session.items?.length || session.mode !== mode)) ||
+      (!isConfirm && !isSummary && pathname !== "/scanner" && !modeMatch)
     )
       navigate("/scanner", { replace: true })
-    else if (pathname !== "/scanner" && !modeMatch && !isSummary)
-      navigate("/scanner", { replace: true })
-  }, [
-    isConfirm,
-
-    isSummary,
-
-    mode,
-
-    navigate,
-
-    pathname,
-
-    sessionReady,
-
-    session?.items?.length,
-
-    session?.mode,
-
-    session?.sessionId,
-
-    summaryId,
-  ])
+  }, [isConfirm, isSummary, mode, modeMatch, navigate, pathname, session?.items?.length, session?.mode, sessionReady])
 
   useEffect(() => {
     if (
@@ -609,10 +608,10 @@ function ScannerFlow({ navigate }) {
 
           body: JSON.stringify({
             name: item.name || "Hasil pemindaian",
-
             ...nutrition,
-
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
+            scan_session_id: id,
+            scan_mode: saved.mode,
           }),
         })
 

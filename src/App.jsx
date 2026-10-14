@@ -3045,6 +3045,8 @@ function AppShell({
 function Dashboard({ navigate }) {
   const [summary, setSummary] = useState(null)
 
+  const [dailyConsulting, setDailyConsulting] = useState(false)
+
   const [loadError, setLoadError] = useState("")
 
   const [featureLoadError, setFeatureLoadError] = useState("")
@@ -3193,6 +3195,35 @@ function Dashboard({ navigate }) {
     color,
   }))
 
+  const startDailyConsultation = async () => {
+    if (dailyConsulting || !summary) return
+    setDailyConsulting(true)
+    const conversationId = newConversationId()
+    const mealLines = (summary.meals || []).slice(0, 10).map(
+      (meal) => `- ${String(meal.name || "Makanan").slice(0, 80)} (${meal.serving_size || "1 sajian"}): ${meal.calories ?? "?"} kkal, P ${meal.protein_g ?? "?"}g, K ${meal.carbs_g ?? "?"}g, L ${meal.fat_g ?? "?"}g, gula ${meal.sugar_g ?? "?"}g, Na ${meal.sodium_mg ?? "?"}mg`,
+    )
+    const totals = ["calories", "protein_g", "carbs_g", "fat_g", "sugar_g", "sodium_mg"]
+      .map((key) => `${key}: ${summary.totals?.[key] ?? "belum diketahui"}`)
+      .join(", ")
+    const targetValues = ["calories", "protein_g", "carbs_g", "fat_g", "sugar_g", "sodium_mg"]
+      .map((key) => `${key}: ${targets[key] ?? "belum ditetapkan"}`)
+      .join(", ")
+    try {
+      await api("/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          message: `Ringkasan asupan harian Nutrily:\n${mealLines.join("\n") || "Belum ada makanan tercatat hari ini."}\n${(summary.meals || []).length > 25 ? `Makanan lain: ${(summary.meals || []).length - 25} item tambahan; gunakan total untuk analisis.\n` : ""}Total hari ini (${totals}). Target harian (${targetValues}). Analisis kecukupan, pola, dan saran perbaikan dibanding target. Jelaskan keterbatasan bila data kosong.`,
+        }),
+      })
+      navigate(`/chat/${conversationId}`)
+    } catch (error) {
+      setLoadError(error.message)
+    } finally {
+      setDailyConsulting(false)
+    }
+  }
+
   const chartData = [
     { name: "Protein", value: totals.protein_g, color: "#8B5CF6" },
 
@@ -3331,11 +3362,12 @@ function Dashboard({ navigate }) {
               Ringkasan dihitung dari makanan yang kamu catat hari ini.
             </p>
             <Button
-              className="relative mt-6 w-full border border-white/80 bg-white !font-bold !text-sky-700 shadow-lg shadow-sky-950/10 transition duration-300 hover:-translate-y-1 hover:scale-[1.01] hover:border-white hover:bg-sky-50 hover:!text-sky-800 hover:shadow-[0_18px_35px_-12px_rgba(7,89,133,0.55)] hover:ring-2 hover:ring-white/60 focus:ring-white/40 active:translate-y-0 active:scale-[0.99]"
-              onClick={() => navigate("chat")}
+              className="relative mt-6 w-full border border-white/80 bg-white !font-bold !text-sky-700 shadow-lg shadow-sky-200 transition duration-300 hover:-translate-y-1 hover:scale-[1.01] hover:bg-sky-50 hover:!text-sky-800"
+              onClick={startDailyConsultation}
+              disabled={dailyConsulting || !summary}
               variant="secondary"
             >
-              Tanya Nutrily AI <ArrowRight className="size-4" />
+              {dailyConsulting ? "Menganalisis…" : "Tanya Nutrily AI"} <ArrowRight className="size-4" />
             </Button>
             <div className="relative mt-6 flex items-center gap-4 rounded-2xl border border-white/15 bg-sky-600 p-4">
               <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white">
@@ -3394,7 +3426,11 @@ function Dashboard({ navigate }) {
                 <button
                   className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 first:pt-1 last:pb-0"
                   key={meal.id}
-                  onClick={() => navigate("/meals")}
+                  onClick={() =>
+                    meal.scan_session_id
+                      ? navigate(`/scanner/summary/${meal.scan_session_id}`)
+                      : navigate("/meals")
+                  }
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
                     <Utensils className="size-4.5 transition-colors group-hover:text-sky-600" />
@@ -4255,7 +4291,7 @@ function Chat({ navigate, routeConversationId }) {
   const [messages, setMessages] = useState([])
 
   const [conversationId, setConversationId] = useState(
-    () => routeConversationId || requestedConversationId || "",
+    () => routeConversationId || requestedConversationId || newConversationId(),
   )
 
   const [conversations, setConversations] = useState([])
@@ -4314,7 +4350,9 @@ function Chat({ navigate, routeConversationId }) {
   useEffect(() => {
     if (!routeConversationId && requestedConversationId)
       navigate(`/chat/${requestedConversationId}`, { replace: true })
-  }, [navigate, requestedConversationId, routeConversationId])
+    else if (!routeConversationId && conversationId)
+      navigate(`/chat/${conversationId}`, { replace: true })
+  }, [conversationId, navigate, requestedConversationId, routeConversationId])
 
   useEffect(() => {
     const panel = messagesPanel.current
@@ -4331,12 +4369,13 @@ function Chat({ navigate, routeConversationId }) {
 
   const startNewChat = () => {
     setShowMobileChats(false)
-    setConversationId("")
+    const id = newConversationId()
+    setConversationId(id)
     setMessages([])
     setMessage("")
     setImage(null)
     setNotice("")
-    navigate("/chat", { replace: true })
+    navigate(`/chat/${id}`, { replace: true })
   }
 
   const deleteConversation = async (id) => {
@@ -4354,11 +4393,12 @@ function Chat({ navigate, routeConversationId }) {
       setConversations((items) => items.filter((item) => item.id !== id))
       setShowMobileChats(false)
       if (conversationId === id) {
-        setConversationId("")
+        const nextId = newConversationId()
+        setConversationId(nextId)
         setMessages([])
         setMessage("")
         setImage(null)
-        navigate("/chat", { replace: true })
+        navigate(`/chat/${nextId}`, { replace: true })
       }
     } catch (error) {
       setNotice(error.message)
@@ -4881,28 +4921,36 @@ function MealHistory({ navigate }) {
         )}
         <section className="mt-7 divide-y divide-slate-100 rounded-3xl border border-slate-100 bg-white px-5 shadow-sm">
           {meals.map((meal) => (
-            <article className="flex items-center gap-4 py-4" key={meal.id}>
+            <button
+              className="flex w-full items-center gap-4 py-4 text-left hover:bg-sky-50/50"
+              key={meal.id}
+              onClick={() =>
+                meal.scan_session_id &&
+                navigate(`/scanner/summary/${meal.scan_session_id}`)
+              }
+              disabled={!meal.scan_session_id}
+            >
               <span className="grid size-11 place-items-center rounded-xl bg-sky-50 text-sky-600">
                 <Utensils className="size-5" />
               </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate font-semibold text-slate-800">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-slate-800">
                   {meal.name}
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">
+                </span>
+                <span className="mt-1 block text-xs text-slate-400">
                   {new Date(meal.created_at).toLocaleString("id-ID")} ·{" "}
                   {meal.serving_size || "1 sajian"}
-                </p>
-              </div>
-              <div className="text-right text-sm font-semibold text-slate-700">
+                </span>
+              </span>
+              <span className="text-right text-sm font-semibold text-slate-700">
                 {meal.calories} kcal
-                <p className="text-xs font-normal text-slate-400">
+                <span className="block text-xs font-normal text-slate-400">
                   P {meal.protein_g}g · K {meal.carbs_g}g · L {meal.fat_g}g
                   <br />
                   Gula {meal.sugar_g ?? 0}g · Natrium {meal.sodium_mg ?? 0}mg
-                </p>
-              </div>
-            </article>
+                </span>
+              </span>
+            </button>
           ))}
           {!meals.length && !error && (
             <p className="py-14 text-center text-sm text-slate-400">
