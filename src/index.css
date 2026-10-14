@@ -14,6 +14,17 @@
   font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
 }
 
+.chat-markdown .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.chat-markdown .katex {
+  font-size: 1em;
+}
+
 .landing-nav-frame[data-scrolled="true"]::before {
   position: absolute;
   inset: 0;

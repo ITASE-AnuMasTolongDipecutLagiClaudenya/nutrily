@@ -11,6 +11,18 @@ import {
 
 import { createPortal } from "react-dom"
 
+import { AnimatePresence, motion } from "framer-motion"
+
+import ReactMarkdown from "react-markdown"
+
+import remarkMath from "remark-math"
+
+import remarkGfm from "remark-gfm"
+
+import rehypeKatex from "rehype-katex"
+
+import "katex/dist/katex.min.css"
+
 import {
   Activity,
   Apple,
@@ -27,14 +39,12 @@ import {
   ExternalLink,
   History,
   HeartPulse,
-  ImagePlus,
   Leaf,
   Menu,
   MoreHorizontal,
   Plus,
   ReceiptText,
   ScanLine,
-  Send,
   ShieldCheck,
   Sparkles,
   Target,
@@ -93,6 +103,8 @@ import Turnstile from "./components/Turnstile"
 import GlowCard from "./components/GlowCard"
 
 import ScannerFlow from "./components/ScannerFlow"
+
+import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
@@ -1430,7 +1442,7 @@ function Onboarding({ navigate }) {
 
               avatar: user?.user_metadata?.avatar_url || "",
             }}
-            onProfile={() => navigate("/onboarding")}
+            onProfile={() => navigate("/profile")}
             onSignOut={async () => {
               await supabase?.auth.signOut()
 
@@ -1881,6 +1893,509 @@ function Onboarding({ navigate }) {
           </div>
         </div>
       )}
+    </main>
+  )
+}
+
+function ProfilePage({ navigate }) {
+  const { user } = useAuth()
+  const avatarInput = useRef(null)
+  const [avatarUrl, setAvatarUrl] = useState(
+    user?.user_metadata?.avatar_url || "",
+  )
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [form, setForm] = useState({
+    full_name: user?.user_metadata?.full_name || "",
+    age: "",
+    gender: "",
+    pregnancy_status: "",
+    weight_kg: "",
+    height_cm: "",
+    activity: "",
+    is_gym: null,
+    goal: "",
+  })
+  const [loading, setLoading] = useState(true)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const [loadError, setLoadError] = useState("")
+  const [reload, setReload] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState("")
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError("")
+
+    api("/profile")
+      .then((profile) => {
+        if (!active) return
+        setForm({
+          full_name: profile.full_name || user?.user_metadata?.full_name || "",
+          age: profile.age == null ? "" : String(profile.age),
+          gender: profile.gender || "",
+          pregnancy_status: profile.pregnancy_status || "",
+          weight_kg: profile.weight_kg == null ? "" : String(profile.weight_kg),
+          height_cm: profile.height_cm == null ? "" : String(profile.height_cm),
+          activity: profile.activity || "",
+          is_gym: typeof profile.is_gym === "boolean" ? profile.is_gym : null,
+          goal: profile.goal || "",
+        })
+        setProfileLoaded(true)
+      })
+      .catch((error) => active && setLoadError(error.message))
+      .finally(() => active && setLoading(false))
+
+    return () => {
+      active = false
+    }
+  }, [reload, user?.user_metadata?.full_name])
+
+  const update = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }))
+    setNotice("")
+    setSaved(false)
+  }
+
+  const uploadAvatar = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!user?.id || !supabase) {
+      setNotice("Sesi tidak tersedia. Silakan masuk kembali.")
+      return
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice("Ukuran foto maksimal 5 MB.")
+      return
+    }
+
+    setUploadingAvatar(true)
+    setNotice("")
+    try {
+      const path = `${user.id}/avatar`
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        })
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
+      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
+      const { error: profileError } = await supabase.auth.updateUser({
+        data: { avatar_url: nextAvatarUrl },
+      })
+      if (profileError) throw profileError
+      setAvatarUrl(nextAvatarUrl)
+      setSaved(false)
+    } catch (error) {
+      setNotice(error.message || "Foto profil gagal diunggah.")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const saveProfile = async (event) => {
+    event.preventDefault()
+    const name = form.full_name.trim()
+    if (!name || name.length > 120) {
+      setNotice("Masukkan nama lengkap, maksimal 120 karakter.")
+      return
+    }
+
+    const onboarding = {
+      age: form.age,
+      gender: form.gender,
+      status: form.pregnancy_status,
+      weight: form.weight_kg,
+      height: form.height_cm,
+      activity: form.activity,
+      isGym: form.is_gym,
+      goal: form.goal,
+    }
+    for (let step = 0; step < 4; step += 1) {
+      const error = validateOnboardingStep(step, onboarding)
+      if (error) {
+        setNotice(error)
+        return
+      }
+    }
+
+    setSaving(true)
+    setNotice("")
+    setSaved(false)
+    try {
+      await api("/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          full_name: name,
+          age: Number(form.age),
+          gender: form.gender,
+          pregnancy_status:
+            form.gender === "Wanita" ? form.pregnancy_status : null,
+          weight_kg: Number(form.weight_kg),
+          height_cm: Number(form.height_cm),
+          activity: form.activity,
+          is_gym: form.is_gym,
+          goal: form.goal,
+        }),
+      })
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: name },
+      })
+      if (error) throw error
+      setForm((current) => ({ ...current, full_name: name }))
+      setSaved(true)
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const activities = [
+    ["Minim gerak", "Lebih banyak duduk dan jarang berolahraga"],
+    ["Ringan", "Olahraga ringan 1–3 hari per minggu"],
+    ["Sedang", "Berolahraga 3–5 hari per minggu"],
+    ["Sangat aktif", "Olahraga berat 6–7 hari per minggu"],
+    ["Aktivitas fisik berat", "Pekerjaan atau latihan fisik berat"],
+  ]
+
+  return (
+    <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+          <Brand />
+          <ProfileDropdown
+            data={{
+              name:
+                form.full_name ||
+                user?.email?.split("@")[0] ||
+                "Profil Nutrily",
+              email: user?.email || "",
+              avatar: avatarUrl,
+            }}
+            onProfile={() => navigate("/profile")}
+            onSignOut={async () => {
+              await supabase?.auth.signOut()
+              navigate("/")
+            }}
+          />
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-4 py-8 pb-12 sm:px-6 sm:py-10 lg:px-8">
+        <button
+          className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+          onClick={() => navigate("/dashboard")}
+          type="button"
+        >
+          <ArrowLeft className="size-4" /> Kembali ke dasbor
+        </button>
+        <div className="mb-6 flex items-start gap-4">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-200">
+            <UserRound className="size-6" />
+          </span>
+          <div>
+            <Pill icon={Sparkles}>Profil Nutrily</Pill>
+            <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] text-slate-900 sm:text-4xl">
+              Edit profil
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-[15px]">
+              Perbarui nama dan data onboarding untuk menyesuaikan acuan gizimu.
+            </p>
+          </div>
+        </div>
+
+        {loadError ? (
+          <section className="rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
+            <p className="text-sm text-rose-700" role="alert">
+              {loadError}
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => setReload((value) => value + 1)}
+              variant="secondary"
+            >
+              Coba lagi
+            </Button>
+          </section>
+        ) : (
+          <form className="space-y-5" onSubmit={saveProfile}>
+            <section className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:p-8">
+              <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 pb-5">
+                <span className="grid size-10 place-items-center rounded-xl bg-sky-50 text-sky-600">
+                  <UserRound className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-bold text-slate-900">Informasi akun</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Foto profil dan nama lengkap
+                  </p>
+                </div>
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={uploadAvatar}
+                  ref={avatarInput}
+                  type="file"
+                />
+                <div className="flex w-full items-center gap-3 sm:w-auto">
+                  <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-emerald-400 p-0.5">
+                    {avatarUrl ? (
+                      <img
+                        alt="Foto profil"
+                        className="size-full rounded-full bg-white object-cover"
+                        referrerPolicy="no-referrer"
+                        src={avatarUrl}
+                      />
+                    ) : (
+                      <span className="grid size-full place-items-center rounded-full bg-white text-lg font-bold text-sky-700">
+                        {(form.full_name || user?.email || "N")
+                          .split(/[ @]/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((part) => part[0].toUpperCase())
+                          .join("")}
+                      </span>
+                    )}
+                  </span>
+                  <div>
+                    <Button
+                      className="px-3"
+                      disabled={uploadingAvatar}
+                      onClick={() => avatarInput.current?.click()}
+                      variant="secondary"
+                    >
+                      <Camera className="size-4" />
+                      {uploadingAvatar ? "Mengunggah…" : "Ganti foto"}
+                    </Button>
+                    <p className="mt-1.5 text-xs text-slate-400">
+                      JPG, PNG, WebP · Maks. 5 MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <label className="mt-5 block max-w-xl">
+                <span className="mb-2 block text-sm font-semibold text-slate-800">
+                  Nama lengkap
+                </span>
+                <input
+                  autoComplete="name"
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[15px] text-slate-900 shadow-sm shadow-slate-900/[0.02] outline-none transition placeholder:text-slate-400 hover:border-sky-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                  maxLength={120}
+                  onChange={(event) => update("full_name", event.target.value)}
+                  placeholder="Nama lengkapmu"
+                  required
+                  value={form.full_name}
+                />
+              </label>
+              <p className="mt-2 text-xs text-slate-400">{user?.email}</p>
+            </section>
+
+            <section className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:p-8">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
+                <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <HeartPulse className="size-5" />
+                </span>
+                <div>
+                  <h2 className="font-bold text-slate-900">Data onboarding</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Data ini memperbarui estimasi target harianmu.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Usia (tahun)"
+                  max={120}
+                  min={13}
+                  onChange={(value) => update("age", value)}
+                  placeholder="Contoh: 28"
+                  step={1}
+                  type="number"
+                  value={form.age}
+                />
+                <Input
+                  label="Berat badan (kg)"
+                  max={500}
+                  min={1}
+                  onChange={(value) => update("weight_kg", value)}
+                  placeholder="Contoh: 68"
+                  step={0.1}
+                  type="number"
+                  value={form.weight_kg}
+                />
+                <Input
+                  label="Tinggi badan (cm)"
+                  max={275}
+                  min={30}
+                  onChange={(value) => update("height_cm", value)}
+                  placeholder="Contoh: 172"
+                  step={0.1}
+                  type="number"
+                  value={form.height_cm}
+                />
+              </div>
+
+              <fieldset className="mt-7">
+                <legend className="mb-3 text-sm font-semibold text-slate-800">
+                  Jenis kelamin
+                </legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {["Pria", "Wanita"].map((gender) => (
+                    <ChoiceCard
+                      active={form.gender === gender}
+                      icon={UserRound}
+                      key={gender}
+                      onClick={() => update("gender", gender)}
+                      title={gender}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+
+              {form.gender === "Wanita" && (
+                <fieldset className="mt-7">
+                  <legend className="mb-3 text-sm font-semibold text-slate-800">
+                    Status kehamilan atau menyusui
+                  </legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      "Tidak ada",
+                      "Trimester 1",
+                      "Trimester 2",
+                      "Trimester 3",
+                      "Menyusui 6 bulan pertama",
+                      "Menyusui 6 bulan kedua",
+                    ].map((status) => (
+                      <button
+                        aria-pressed={form.pregnancy_status === status}
+                        className={cn(
+                          "min-h-11 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
+                          form.pregnancy_status === status
+                            ? "border-sky-300 bg-sky-50 text-sky-800 ring-1 ring-sky-100"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/60",
+                        )}
+                        key={status}
+                        onClick={() => update("pregnancy_status", status)}
+                        type="button"
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              <fieldset className="mt-7">
+                <legend className="mb-3 text-sm font-semibold text-slate-800">
+                  Aktivitas harian
+                </legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {activities.map(([title, description]) => (
+                    <ChoiceCard
+                      active={form.activity === title}
+                      className={
+                        title === "Aktivitas fisik berat" ? "sm:col-span-2" : ""
+                      }
+                      icon={Activity}
+                      key={title}
+                      onClick={() => update("activity", title)}
+                      title={title}
+                      description={description}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-7">
+                <legend className="mb-3 text-sm font-semibold text-slate-800">
+                  Apakah kamu rutin latihan di gym?
+                </legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    [true, "Ya, rutin gym"],
+                    [false, "Tidak rutin gym"],
+                  ].map(([value, title]) => (
+                    <ChoiceCard
+                      active={form.is_gym === value}
+                      icon={Dumbbell}
+                      key={title}
+                      onClick={() => update("is_gym", value)}
+                      title={title}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-7">
+                <legend className="mb-3 text-sm font-semibold text-slate-800">
+                  Targetmu
+                </legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Menurunkan berat badan", TrendingUp],
+                    ["Menjaga berat badan", HeartPulse],
+                    ["Menambah berat badan", Dumbbell],
+                  ].map(([goal, Icon]) => (
+                    <ChoiceCard
+                      active={form.goal === goal}
+                      className={
+                        goal === "Menambah berat badan" ? "sm:col-span-2" : ""
+                      }
+                      icon={Icon}
+                      key={goal}
+                      onClick={() => update("goal", goal)}
+                      title={goal}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            </section>
+
+            {(notice || saved) && (
+              <p
+                aria-live="polite"
+                className={cn(
+                  "rounded-xl px-4 py-3 text-sm",
+                  notice
+                    ? "bg-rose-50 text-rose-700"
+                    : "bg-emerald-50 text-emerald-700",
+                )}
+                role={notice ? "alert" : "status"}
+              >
+                {notice || "Profil berhasil diperbarui."}
+              </p>
+            )}
+            <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
+              <Button
+                onClick={() => navigate("/dashboard")}
+                variant="secondary"
+              >
+                Batal
+              </Button>
+              <Button
+                className="min-w-40 bg-gradient-to-r from-sky-500 to-blue-600"
+                disabled={loading || !profileLoaded || saving}
+                type="submit"
+              >
+                {loading || saving ? "Menyimpan…" : "Simpan perubahan"}
+                <Check className="size-4" />
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
     </main>
   )
 }
@@ -2395,7 +2910,7 @@ function AppShell({
 
                     avatar: user?.user_metadata?.avatar_url || "",
                   }}
-                  onProfile={() => navigate("/onboarding")}
+                  onProfile={() => navigate("/profile")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
@@ -2436,7 +2951,7 @@ function AppShell({
 
                     avatar: user?.user_metadata?.avatar_url || "",
                   }}
-                  onProfile={() => navigate("/onboarding")}
+                  onProfile={() => navigate("/profile")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
@@ -2666,7 +3181,7 @@ function Dashboard({ navigate }) {
           </Button>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[1.55fr_.85fr]">
+        <div className="grid gap-5 lg:grid-cols-[1.55fr_.85fr]">
           <section className="h-fit self-start rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -2811,7 +3326,7 @@ function Dashboard({ navigate }) {
             {loadError}
           </p>
         )}
-        <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1.05fr_.95fr]">
+        <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
           <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -3599,6 +4114,87 @@ function ChatRoute({ navigate }) {
   )
 }
 
+function ChatMarkdown({ content }) {
+  return (
+    <div className="chat-markdown min-w-0">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          h1: ({ children }) => (
+            <h2 className="mb-3 mt-5 text-xl font-bold text-slate-900 first:mt-0">
+              {children}
+            </h2>
+          ),
+          h2: ({ children }) => (
+            <h3 className="mb-2 mt-5 text-lg font-bold text-slate-900 first:mt-0">
+              {children}
+            </h3>
+          ),
+          h3: ({ children }) => (
+            <h4 className="mb-2 mt-4 text-base font-bold text-slate-900">
+              {children}
+            </h4>
+          ),
+          p: ({ children }) => (
+            <p className="my-2 leading-7 text-slate-700 last:mb-0">
+              {children}
+            </p>
+          ),
+          ul: ({ children }) => (
+            <ul className="my-3 list-disc space-y-1 pl-6 text-slate-700">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="my-3 list-decimal space-y-1 pl-6 text-slate-700">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
+          strong: ({ children }) => (
+            <strong className="font-bold text-slate-900">{children}</strong>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="my-3 border-l-2 border-sky-300 pl-4 text-slate-600">
+              {children}
+            </blockquote>
+          ),
+          pre: ({ children }) => (
+            <pre className="my-3 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm text-slate-100">
+              {children}
+            </pre>
+          ),
+          code: ({ children }) => (
+            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-sky-800">
+              {children}
+            </code>
+          ),
+          table: ({ children }) => (
+            <div className="my-3 overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-800">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-b border-slate-100 px-3 py-2 text-slate-700">
+              {children}
+            </td>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
 function Chat({ navigate, routeConversationId }) {
   const { search } = useLocation()
   const requestedConversationId =
@@ -3623,6 +4219,8 @@ function Chat({ navigate, routeConversationId }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
+  const [sidebarHovered, setSidebarHovered] = useState(false)
+
   const [deletingId, setDeletingId] = useState("")
 
   const imageInput = useRef(null)
@@ -3630,6 +4228,8 @@ function Chat({ navigate, routeConversationId }) {
   const messagesPanel = useRef(null)
 
   const imageUrls = useRef([])
+
+  const sidebarExpanded = sidebarOpen || sidebarHovered || showMobileChats
 
   useEffect(
     () => () => imageUrls.current.forEach((url) => URL.revokeObjectURL(url)),
@@ -3685,6 +4285,7 @@ function Chat({ navigate, routeConversationId }) {
   }
 
   const startNewChat = () => {
+    setShowMobileChats(false)
     setConversationId("")
     setMessages([])
     setMessage("")
@@ -3826,126 +4427,239 @@ function Chat({ navigate, routeConversationId }) {
 
   return (
     <AppShell active="chat" navigate={navigate}>
-      <main className="h-dvh overflow-hidden bg-white" data-lenis-prevent>
+      <main
+        className="font-poppins relative h-dvh overflow-hidden bg-white text-slate-900"
+        data-lenis-prevent
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+        >
+          <div className="absolute -left-40 -top-48 size-[34rem] rounded-full bg-sky-100/80 blur-[120px]" />
+          <div className="absolute -bottom-64 right-[-8rem] size-[36rem] rounded-full bg-indigo-100/60 blur-[130px]" />
+          <div className="absolute right-[28%] top-[18%] size-64 rounded-full bg-cyan-100/70 blur-[100px]" />
+        </div>
         <div
           className={cn(
-            "relative mx-auto grid h-full max-w-[1600px] overflow-hidden bg-white",
+            "relative z-10 mx-auto grid h-full max-w-[1600px] overflow-hidden border-x border-slate-100 bg-transparent transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
 
-            sidebarOpen
+            sidebarExpanded
               ? "lg:grid-cols-[260px_minmax(0,1fr)]"
-              : "lg:grid-cols-[0_minmax(0,1fr)]",
+              : "lg:grid-cols-[72px_minmax(0,1fr)]",
           )}
         >
-          <aside
+          <button
+            aria-hidden="true"
             className={cn(
-              "hidden min-h-0 overflow-hidden border-r border-slate-100 bg-[#f9f9f9] p-3 lg:flex lg:flex-col",
-
-              !sidebarOpen && "border-0 p-0",
+              "absolute inset-0 z-30 bg-slate-950/20 opacity-0 backdrop-blur-[1px] transition-opacity duration-300 motion-reduce:transition-none lg:hidden",
+              showMobileChats
+                ? "pointer-events-auto opacity-100"
+                : "pointer-events-none",
             )}
-            aria-hidden={!sidebarOpen}
+            onClick={() => setShowMobileChats(false)}
+            tabIndex={-1}
+            type="button"
+          />
+          <aside
+            onMouseEnter={() => {
+              setSidebarHovered(true)
+            }}
+            onMouseLeave={() => {
+              setSidebarHovered(false)
+            }}
+            className={cn(
+              "fixed inset-y-0 left-0 z-40 flex w-[min(82vw,260px)] min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-white/95 p-3 backdrop-blur-xl transition-[translate,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:bg-white/85",
+              showMobileChats ? "translate-x-0" : "-translate-x-full",
+              sidebarExpanded ? "items-stretch" : "items-center px-2",
+            )}
           >
-            <Brand />
-            <Button
-              className="mt-6 w-full justify-start rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-none hover:bg-slate-50"
-              onClick={startNewChat}
-              variant="secondary"
+            <button
+              aria-label="Tutup sidebar"
+              className="grid size-10 shrink-0 place-items-center self-start rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 lg:hidden"
+              onClick={() => setShowMobileChats(false)}
+              type="button"
             >
-              <Plus className="size-4" /> Percakapan baru
-            </Button>
-            <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-500">
-              Riwayat percakapan
-            </p>
-            <div
-              className="min-h-0 flex-1 space-y-1 overflow-y-auto"
-              data-lenis-prevent
-            >
-              {conversations.map((item) => (
-                <div className="flex items-start gap-1" key={item.id}>
-                  <button
-                    aria-current={
-                      conversationId === item.id ? "page" : undefined
-                    }
-                    className={cn(
-                      "min-w-0 flex-1 truncate rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-slate-200/70",
-
-                      conversationId === item.id
-                        ? "bg-slate-200/70 font-semibold text-slate-800"
-                        : "text-slate-700",
-                    )}
-                    onClick={() => openConversation(item.id)}
-                    type="button"
-                  >
-                    <span className="block truncate">
-                      {String(item.preview || "Percakapan baru").slice(0, 54)}
-                    </span>
-                    <span
-                      className="mt-1 block truncate font-mono text-[10px] text-slate-400"
-                      title={`ID sesi: ${item.id}`}
-                    >
-                      ID sesi: {item.id}
-                    </span>
-                  </button>
-                  <button
-                    aria-label="Hapus percakapan"
-                    className="mt-1 grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
-                    disabled={Boolean(deletingId)}
-                    onClick={() => deleteConversation(item.id)}
-                    title="Hapus percakapan"
-                    type="button"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))}
-              {!conversations.length && (
-                <p className="px-3 text-xs leading-5 text-slate-400">
-                  Belum ada percakapan.
-                </p>
+              <X className="size-5" />
+            </button>
+            <button
+              aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+              aria-expanded={sidebarExpanded}
+              className={cn(
+                "hidden shrink-0 place-items-center rounded-xl text-slate-500 transition-[width,height,margin,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-reduce:transition-none lg:grid",
+                sidebarExpanded
+                  ? "size-10 self-start"
+                  : "mx-auto size-8 self-center",
               )}
+              onClick={() => {
+                setSidebarHovered(false)
+                setSidebarOpen((open) => !open)
+              }}
+              title={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+              type="button"
+            >
+              <Menu className="size-5" />
+            </button>
+            <button
+              aria-label="Percakapan baru"
+              className={cn(
+                "mt-5 flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-sky-500 bg-sky-500 text-[11px] font-bold text-white transition-[width,padding,background-color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-sky-600 hover:bg-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-reduce:transition-none",
+                sidebarExpanded ? "w-full px-3" : "size-10",
+              )}
+              onClick={startNewChat}
+              type="button"
+              title="Percakapan baru"
+            >
+              <Plus className="size-4 shrink-0 text-white" />
+              <AnimatePresence initial={false}>
+                {sidebarExpanded && (
+                  <motion.span
+                    animate={{ opacity: 1, x: 0 }}
+                    className="whitespace-nowrap"
+                    exit={{ opacity: 0, x: -4 }}
+                    initial={{ opacity: 0, x: -4 }}
+                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    Percakapan Baru
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+            <AnimatePresence initial={false}>
+              {sidebarExpanded && (
+                <motion.div
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex min-h-0 flex-1 flex-col"
+                  exit={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: -8 }}
+                  key="expanded-sidebar"
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-400">
+                    Riwayat percakapan
+                  </p>
+                  <div
+                    className="min-h-0 flex-1 space-y-1 overflow-y-auto"
+                    data-lenis-prevent
+                  >
+                    {conversations.map((item) => (
+                      <div
+                        className={cn(
+                          "group/history relative rounded-xl transition-colors",
+                          conversationId === item.id
+                            ? "bg-sky-50 ring-1 ring-sky-100"
+                            : "hover:bg-slate-100",
+                        )}
+                        key={item.id}
+                      >
+                        <button
+                          aria-current={
+                            conversationId === item.id ? "page" : undefined
+                          }
+                          className={cn(
+                            "block w-full min-w-0 truncate rounded-xl px-3 py-2.5 pr-10 text-left text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600",
+                            conversationId === item.id
+                              ? "font-semibold text-sky-800"
+                              : "text-slate-600 hover:text-slate-900",
+                          )}
+                          onClick={() => openConversation(item.id)}
+                          type="button"
+                        >
+                          <motion.span
+                            animate={{ opacity: 1, x: 0 }}
+                            className="block truncate"
+                            initial={{ opacity: 0, x: -4 }}
+                            transition={{
+                              duration: 0.2,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
+                          >
+                            {String(item.preview || "Percakapan baru").slice(
+                              0,
+                              54,
+                            )}
+                          </motion.span>
+                          <span className="mt-1 block truncate text-[9px] text-slate-400">
+                            {item.updated_at
+                              ? new Date(item.updated_at).toLocaleDateString(
+                                  "id-ID",
+                                  { day: "numeric", month: "short" },
+                                )
+                              : "Percakapan"}
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Hapus percakapan"
+                          className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-slate-400 opacity-60 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-rose-500 group-hover/history:opacity-100 disabled:opacity-40"
+                          disabled={Boolean(deletingId)}
+                          onClick={() => deleteConversation(item.id)}
+                          title="Hapus percakapan"
+                          type="button"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {!conversations.length && (
+                      <p className="px-3 text-xs leading-5 text-slate-500">
+                        Mulai percakapan pertamamu.
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div
+              className={cn(
+                "mt-auto flex min-h-12 shrink-0 items-center overflow-hidden border-t border-slate-100 pt-3 transition-[gap,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                sidebarExpanded ? "gap-2 px-2" : "justify-center",
+              )}
+            >
+              <motion.img
+                alt="Nutrily"
+                className="size-9 shrink-0 object-contain"
+                layout
+                src={`${import.meta.env.BASE_URL}logo-biru.png`}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              />
+              <AnimatePresence initial={false} mode="popLayout">
+                {sidebarExpanded && (
+                  <motion.span
+                    animate={{ opacity: 1, x: 0 }}
+                    className="whitespace-nowrap text-lg font-semibold tracking-tight text-slate-900"
+                    exit={{ opacity: 0, x: -6 }}
+                    initial={{ opacity: 0, x: -6 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    Nutri<span className="text-sky-500">ly</span> AI
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           </aside>
 
           <section className="flex min-h-0 min-w-0 flex-col">
-            <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6">
+            <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6">
               <div className="flex items-center gap-3">
                 <button
-                  aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
-                  aria-expanded={sidebarOpen}
-                  className="hidden size-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:grid"
-                  onClick={() => setSidebarOpen((open) => !open)}
-                  title={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
-                  type="button"
-                >
-                  <Menu className="size-4.5" />
-                </button>
-                <button
-                  aria-label="Buka daftar obrolan"
+                  aria-label={
+                    showMobileChats ? "Tutup sidebar" : "Buka sidebar"
+                  }
                   aria-expanded={showMobileChats}
-                  className="grid size-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
+                  className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
                   onClick={() => setShowMobileChats((shown) => !shown)}
                   type="button"
                 >
-                  <Menu className="size-4.5" />
+                  {showMobileChats ? (
+                    <X className="size-4.5" />
+                  ) : (
+                    <Menu className="size-4.5" />
+                  )}
                 </button>
-                <h1 className="text-sm font-semibold text-slate-800">
-                  Nutrily AI
-                </h1>
               </div>
               <div className="flex items-center gap-3">
-                <span className="hidden text-xs text-slate-400 sm:block">
-                  Asisten gizi personal
-                </span>
-                {conversationId && (
-                  <span
-                    className="max-w-24 truncate font-mono text-[10px] text-slate-400 sm:max-w-36"
-                    title={`ID sesi: ${conversationId}`}
-                  >
-                    ID: {conversationId.slice(0, 8)}
-                  </span>
-                )}
                 <button
                   aria-label="Kembali ke ringkasan"
-                  className="grid size-9 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100"
+                  className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white transition-colors hover:bg-sky-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
                   onClick={() => navigate("dashboard")}
                   title="Kembali ke ringkasan"
                   type="button"
@@ -3955,68 +4669,26 @@ function Chat({ navigate, routeConversationId }) {
               </div>
             </header>
 
-            {showMobileChats && (
-              <div
-                className="absolute inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-slate-100 bg-white p-4 shadow-lg lg:hidden"
-                data-lenis-prevent
-              >
-                <Button
-                  className="w-full"
-                  onClick={startNewChat}
-                  variant="secondary"
-                >
-                  <Plus className="size-4" /> Percakapan baru
-                </Button>
-                <p className="mb-2 mt-4 px-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">
-                  Obrolan terbaru
-                </p>
-                {conversations.map((item) => (
-                  <div className="flex items-start gap-1" key={item.id}>
-                    <button
-                      className="block min-w-0 flex-1 truncate rounded-lg px-3 py-2.5 text-left text-[13px] text-slate-600 hover:bg-slate-50"
-                      onClick={() => openConversation(item.id)}
-                      type="button"
-                    >
-                      <span className="block truncate">
-                        {String(item.preview || "Percakapan baru").slice(0, 54)}
-                      </span>
-                      <span
-                        className="mt-1 block truncate font-mono text-[10px] text-slate-400"
-                        title={`ID sesi: ${item.id}`}
-                      >
-                        ID sesi: {item.id}
-                      </span>
-                    </button>
-                    <button
-                      aria-label="Hapus percakapan"
-                      className="grid size-10 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                      disabled={Boolean(deletingId)}
-                      onClick={() => deleteConversation(item.id)}
-                      type="button"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <div
-              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-6 sm:px-8"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-6 sm:px-8"
               data-lenis-prevent
               ref={messagesPanel}
             >
-              <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end">
+              <div className="mx-auto flex min-h-full w-[90%] max-w-none flex-col justify-end">
                 {!messages.length && (
                   <div className="m-auto max-w-lg px-4 text-center">
-                    <div className="mx-auto mb-5 grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-700">
-                      <Sparkles className="size-6" />
+                    <div className="mx-auto mb-5 grid size-14 place-items-center rounded-[1.2rem] border border-sky-100 bg-gradient-to-br from-sky-50 to-indigo-50 text-sky-600 shadow-[0_12px_40px_-20px_rgba(56,189,248,.35)]">
+                      <img
+                        alt=""
+                        className="size-8 object-contain"
+                        src={`${import.meta.env.BASE_URL}logo-biru.png`}
+                      />
                     </div>
-                    <h2 className="text-2xl font-semibold tracking-tight text-slate-800">
-                      Apa yang ingin kamu ketahui?
+                    <h2 className="text-2xl font-medium tracking-tight text-slate-900 sm:text-[1.75rem]">
+                      Ada yang ingin kamu tanyakan?
                     </h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Tanyakan makanan, nutrisi, atau target harianmu.
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                      Ceritakan tentang makanan, nutrisi, atau target harianmu.
                     </p>
                   </div>
                 )}
@@ -4024,22 +4696,26 @@ function Chat({ navigate, routeConversationId }) {
                   {messages.map((item, index) =>
                     item.from === "ai" ? (
                       <div
-                        className="flex max-w-3xl items-start gap-3 text-slate-800"
+                        className="flex w-full items-start gap-3 text-slate-800"
                         key={item.id || `${item.from}-${index}`}
                       >
-                        <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700">
-                          <Sparkles className="size-4" />
+                        <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl border border-sky-100 bg-sky-50 text-sky-600">
+                          <img
+                            alt=""
+                            className="size-5 object-contain"
+                            src={`${import.meta.env.BASE_URL}logo-biru.png`}
+                          />
                         </div>
-                        <div className="min-w-0 flex-1 whitespace-pre-wrap pt-1 text-[15px] leading-7">
-                          {item.text}
+                        <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-[15px] leading-7 text-slate-700 shadow-[0_8px_28px_-22px_rgba(15,23,42,.28)] sm:px-6">
+                          <ChatMarkdown content={item.text} />
                         </div>
                       </div>
                     ) : (
                       <div
-                        className="ml-auto flex max-w-[85%] justify-end sm:max-w-[75%]"
+                        className="ml-auto flex max-w-[90%] justify-end"
                         key={item.id || `${item.from}-${index}`}
                       >
-                        <div className="rounded-3xl bg-[#f4f4f4] px-5 py-3 text-[15px] leading-6 text-slate-800">
+                        <div className="rounded-[1.4rem] rounded-br-md border border-sky-500 bg-sky-500 px-5 py-3 text-[15px] leading-6 text-white shadow-[0_10px_28px_-20px_rgba(14,165,233,.7)]">
                           {item.imageUrl && (
                             <img
                               alt="Gambar terlampir"
@@ -4052,79 +4728,69 @@ function Chat({ navigate, routeConversationId }) {
                       </div>
                     ),
                   )}
+                  <AnimatePresence>
+                    {sending && (
+                      <motion.div
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-3"
+                        exit={{ opacity: 0, y: -4 }}
+                        initial={{ opacity: 0, y: 6 }}
+                        role="status"
+                      >
+                        <span className="grid size-8 shrink-0 place-items-center rounded-xl border border-sky-100 bg-sky-50 text-sky-600">
+                          <img
+                            alt=""
+                            className="size-5 object-contain"
+                            src={`${import.meta.env.BASE_URL}logo-biru.png`}
+                          />
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-[0_8px_28px_-22px_rgba(15,23,42,.28)]">
+                          Nutrily AI sedang berpikir
+                          <span aria-hidden="true" className="flex gap-1">
+                            {[0, 1, 2].map((dot) => (
+                              <motion.span
+                                animate={{
+                                  opacity: [0.3, 1, 0.3],
+                                  y: [0, -3, 0],
+                                }}
+                                className="size-1.5 rounded-full bg-sky-500"
+                                key={dot}
+                                transition={{
+                                  duration: 0.9,
+                                  repeat: Infinity,
+                                  delay: dot * 0.15,
+                                }}
+                              />
+                            ))}
+                          </span>
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
 
-            <div className="shrink-0 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
-              <form
-                className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-[#f4f4f4] p-2 shadow-sm transition focus-within:border-slate-300 focus-within:shadow-md"
-                onSubmit={send}
-              >
-                {image && (
-                  <div className="relative mb-2 ml-2 w-fit">
-                    <img
-                      alt="Pratinjau gambar"
-                      className="size-20 rounded-xl object-cover"
-                      src={image.url}
-                    />
-                    <button
-                      aria-label="Hapus gambar"
-                      className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-slate-800 text-white shadow"
-                      onClick={() => setImage(null)}
-                      type="button"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex min-h-11 min-w-0 items-center gap-2">
-                  <input
-                    accept="image/jpeg,image/png"
-                    className="hidden"
-                    onChange={chooseImage}
-                    ref={imageInput}
-                    type="file"
-                  />
-                  <button
-                    aria-label="Lampirkan gambar"
-                    className="grid size-10 shrink-0 place-items-center rounded-full text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50"
-                    disabled={sending}
-                    onClick={() => imageInput.current?.click()}
-                    title="Lampirkan gambar JPG atau PNG"
-                    type="button"
-                  >
-                    <ImagePlus className="size-5" />
-                  </button>
-                  <input
-                    className="h-10 min-w-0 flex-1 bg-transparent px-2 text-[15px] text-slate-800 outline-none placeholder:text-slate-500"
-                    maxLength={4000}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Tanyakan apa saja tentang gizi..."
-                    value={message}
-                  />
-                  <button
-                    aria-label="Kirim pesan"
-                    className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-800 text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    disabled={sending || (!message.trim() && !image)}
-                    type="submit"
-                  >
-                    <Send className="size-5" />
-                  </button>
-                </div>
-              </form>
+            <div className="relative z-10 shrink-0 bg-gradient-to-t from-white via-white/95 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5 sm:px-5 sm:pb-5">
+              <AnimatedAIChat
+                hasMessages={messages.length > 0}
+                image={image}
+                imageInputRef={imageInput}
+                message={message}
+                onChooseImage={chooseImage}
+                onMessageChange={setMessage}
+                onRemoveImage={() => setImage(null)}
+                onSend={send}
+                sending={sending}
+              />
               {notice && (
                 <p
                   aria-live="polite"
-                  className="mx-auto mt-2 max-w-3xl rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
+                  className="mx-auto mt-2 max-w-3xl rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
                 >
                   {notice}
                 </p>
               )}
-              <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-slate-400">
-                Jawaban Nutrily mungkin tidak selalu tepat. Untuk saran medis,
-                konsultasikan dengan tenaga kesehatan profesional.
-              </p>
             </div>
           </section>
         </div>
@@ -4368,6 +5034,8 @@ export default function App() {
 
       onboarding: "/onboarding",
 
+      profile: "/profile",
+
       dashboard: "/dashboard",
 
       scanner: "/scanner",
@@ -4393,6 +5061,14 @@ export default function App() {
           </ProtectedRoute>
         }
         path="/onboarding"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <ProfilePage navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/profile"
       />
       <Route
         element={
