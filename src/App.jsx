@@ -114,6 +114,19 @@ import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
+const isCompleteProfile = (profile) =>
+  Boolean(
+    profile?.full_name?.trim() &&
+      Number.isInteger(Number(profile.age)) &&
+      profile.gender &&
+      (profile.gender !== "Wanita" || profile.pregnancy_status) &&
+      Number(profile.weight_kg) >= 1 &&
+      Number(profile.height_cm) >= 30 &&
+      profile.activity &&
+      typeof profile.is_gym === "boolean" &&
+      profile.goal,
+  )
+
 const profileBlue = "bg-sky-500 hover:bg-sky-600"
 
 const newConversationId = () =>
@@ -1353,6 +1366,11 @@ function Onboarding({ navigate, editMode = false }) {
   }, [])
 
   useEffect(() => {
+    if (!editMode && profileLoaded && isCompleteProfile({ full_name: fullName, age, gender, pregnancy_status: status, weight_kg: weight, height_cm: height, activity, is_gym: isGym, goal }))
+      navigate("/dashboard", { replace: true })
+  }, [editMode, fullName, age, gender, status, weight, height, activity, isGym, goal, navigate, profileLoaded])
+
+  useEffect(() => {
     const years = Number(age)
 
     const kilograms = Number(weight)
@@ -1530,33 +1548,20 @@ function Onboarding({ navigate, editMode = false }) {
     try {
       await api("/profile", {
         method: "PUT",
-
         body: JSON.stringify({
           full_name: fullName || user?.user_metadata?.full_name || "",
-
           age: years,
-
           gender,
-
           pregnancy_status: gender === "Wanita" ? status : null,
-
           weight_kg: kilograms,
-
           height_cm: centimeters,
-
           activity,
-
           is_gym: isGym,
-
-          goal,
         }),
       })
-
       navigate(
         editMode ? "/profile" : "/dashboard",
-        editMode
-          ? { replace: true, state: { notice: "Data berhasil diubah." } }
-          : { replace: true },
+        { replace: true, state: { notice: editMode ? "Data berhasil diubah." : "Data onboarding berhasil disimpan." } },
       )
     } catch (error) {
       setNotice(error.message)
@@ -2463,17 +2468,12 @@ function ProfileAccountPage({ navigate }) {
         ? await query.update({ full_name: fullName }).eq("user_id", user.id)
         : await query.insert({ user_id: user.id, full_name: fullName })
       if (error) throw error
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: fullName },
-      })
+      const { error: authError } = await supabase.auth.updateUser({ data: { full_name: fullName } })
       if (authError) throw authError
       setHasProfile(true)
       setName(fullName)
       setInitialName(fullName)
-      navigate("/profile", {
-        replace: true,
-        state: { notice: "Data berhasil diubah." },
-      })
+      navigate("/profile", { replace: true, state: { notice: "Data berhasil diubah." } })
     } catch (error) {
       setNotice(error.message || "Nama profil gagal diperbarui.")
       setShowSaveConfirmation(false)
@@ -2488,39 +2488,37 @@ function ProfileAccountPage({ navigate }) {
     const file = event.target.files?.[0]
     event.target.value = ""
     if (!file) return
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
-      return
+    if (!file.type.startsWith("image/")) return setNotice("Pilih file foto yang valid.")
+    if (file.size > 5 * 1024 * 1024) return setNotice("Ukuran foto maksimal 5 MB.")
+    const image = new Image()
+    image.onload = () => {
+      const size = Math.min(image.naturalWidth, image.naturalHeight)
+      const canvas = document.createElement("canvas")
+      canvas.width = 512
+      canvas.height = 512
+      canvas.getContext("2d").drawImage(image, (image.naturalWidth - size) / 2, (image.naturalHeight - size) / 2, size, size, 0, 0, 512, 512)
+      canvas.toBlob(async (blob) => {
+        if (!blob) return setNotice("Foto gagal diproses.")
+        setUploadingAvatar(true)
+        setNotice("")
+        try {
+          const body = new FormData()
+          body.append("avatar", blob, "avatar.jpg")
+          const result = await api("/profile/avatar", { method: "POST", body })
+          const nextAvatarUrl = `${result.avatar_url}?t=${Date.now()}`
+          const { error: authError } = await supabase.auth.updateUser({ data: { avatar_url: nextAvatarUrl } })
+          if (authError) throw authError
+          setAvatarUrl(nextAvatarUrl)
+          setNotice("Foto profil berhasil diperbarui.")
+        } catch (error) {
+          setNotice(error.message)
+        } finally {
+          setUploadingAvatar(false)
+        }
+      }, "image/jpeg", 0.9)
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setNotice("Ukuran foto maksimal 5 MB.")
-      return
-    }
-    setUploadingAvatar(true)
-    setNotice("")
-    try {
-      const path = `${user.id}/avatar`
-      const { error } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, {
-          cacheControl: "3600",
-          contentType: file.type,
-          upsert: true,
-        })
-      if (error) throw error
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
-      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { avatar_url: nextAvatarUrl },
-      })
-      if (authError) throw authError
-      setAvatarUrl(nextAvatarUrl)
-      setNotice("Foto profil berhasil diperbarui.")
-    } catch (error) {
-      setNotice(error.message || "Foto profil gagal diunggah.")
-    } finally {
-      setUploadingAvatar(false)
-    }
+    image.onerror = () => setNotice("Foto tidak dapat dibaca.")
+    image.src = URL.createObjectURL(file)
   }
 
   return (
@@ -2576,7 +2574,7 @@ function ProfileAccountPage({ navigate }) {
               <div className="flex items-center gap-3">
                 <button
                   aria-label={uploadingAvatar ? "Mengunggah foto" : "Edit foto"}
-                  className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm disabled:opacity-50"
                   disabled={uploadingAvatar}
                   onClick={() => avatarInput.current?.click()}
                   type="button"
@@ -2586,10 +2584,24 @@ function ProfileAccountPage({ navigate }) {
                 {avatarUrl && (
                   <button
                     aria-label="Hapus foto profil"
-                    className="grid size-11 place-items-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
-                    onClick={() =>
-                      setNotice("Aksi hapus foto akan tersedia nanti.")
-                    }
+                    className="grid size-11 place-items-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm disabled:opacity-50"
+                    disabled={uploadingAvatar}
+                    onClick={async () => {
+                      if (!window.confirm("Hapus foto profil?")) return
+                      setUploadingAvatar(true)
+                      setNotice("")
+                      try {
+                        await api("/profile/avatar", { method: "DELETE" })
+                        const { error } = await supabase.auth.updateUser({ data: { avatar_url: "" } })
+                        if (error) throw error
+                        setAvatarUrl("")
+                        setNotice("Foto profil berhasil dihapus.")
+                      } catch (error) {
+                        setNotice(error.message)
+                      } finally {
+                        setUploadingAvatar(false)
+                      }
+                    }}
                     type="button"
                   >
                     <Trash2 aria-hidden="true" className="size-4" />
@@ -3023,25 +3035,17 @@ function AppShell({
   const { user } = useAuth()
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
   const [sidebarHovered, setSidebarHovered] = useState(false)
-
   const [suppressSidebarHover, setSuppressSidebarHover] = useState(false)
-
-  const sidebarExpanded =
-    !sidebarCollapsed || (sidebarHovered && !suppressSidebarHover)
-
+  const sidebarExpanded = !sidebarCollapsed || (sidebarHovered && !suppressSidebarHover)
   const items = [
     ["dashboard", "Ringkasan", Activity],
-
     ["scanner", "Scan", ScanLine],
-
     ["chat", "Nutrily AI", Sparkles],
-
     ["meals", "Riwayat", History],
   ]
-
   const scrollProgressRef = useRef(null)
+
 
   useEffect(() => {
     let frame = 0
@@ -3356,9 +3360,14 @@ function AppShell({
 }
 
 function Dashboard({ navigate }) {
+  const location = useLocation()
+  const [dashboardNotice, setDashboardNotice] = useState(location.state?.notice || "")
   const [summary, setSummary] = useState(null)
 
-  const [dailyConsulting, setDailyConsulting] = useState(false)
+  useEffect(() => {
+    if (!location.state?.notice) return
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
 
   const [loadError, setLoadError] = useState("")
 
@@ -3586,6 +3595,11 @@ function Dashboard({ navigate }) {
   return (
     <AppShell active="dashboard" navigate={navigate}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
+        {dashboardNotice && (
+          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700" role="status">
+            {dashboardNotice}
+          </div>
+        )}
         <div className="mb-7 md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold text-sky-600">
@@ -5480,25 +5494,11 @@ function MealHistory({ navigate }) {
     setNotice("")
     try {
       const session = sessions.find(({ id }) => id === sessionDialog.ids[0])
-      const query = session?.scan_session_id
-        ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
-        : `meal_id=${encodeURIComponent(session?.meals[0]?.id)}`
-      await api(`/meals?${query}`, {
-        method: "PATCH",
-        body: JSON.stringify({ scan_session_name: name }),
-      })
-      setMeals((previous) =>
-        previous.map((meal) =>
-          selectedSession.scan_session_id
-            ? meal.scan_session_id === selectedSession.scan_session_id
-              ? { ...meal, scan_session_name: name }
-              : meal
-            : meal.id === selectedSession.meals[0]?.id
-              ? { ...meal, scan_session_name: name }
-              : meal,
-        ),
-      )
+      const query = session?.scan_session_id ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}` : `meal_id=${encodeURIComponent(session?.meals[0]?.id)}`
+      await api(`/meals?${query}`, { method: "PATCH", body: JSON.stringify({ scan_session_name: name }) })
+      setMeals((previous) => previous.map((meal) => selectedSession.scan_session_id ? meal.scan_session_id === selectedSession.scan_session_id ? { ...meal, scan_session_name: name } : meal : meal.id === selectedSession.meals[0]?.id ? { ...meal, scan_session_name: name } : meal))
       setSessionDialog(null)
+      setNotice("Nama sesi berhasil diubah.")
     } catch (error) {
       setNotice(error.message)
     } finally {
@@ -5514,33 +5514,23 @@ function MealHistory({ navigate }) {
   const confirmDeleteSessions = async () => {
     const selected = new Set(sessionDialog?.ids || [])
     if (!selected.size) return
-
     setActionBusy(true)
     setNotice("")
     try {
       for (const sessionId of selected) {
         const session = sessions.find(({ id }) => id === sessionId)
-        const query = session?.scan_session_id
-          ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
-          : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
+        const query = session?.scan_session_id ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}` : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
         await api(`/meals?${query}`, { method: "DELETE" })
       }
-      setMeals((previous) =>
-        previous.filter(
-          (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
-        ),
-      )
+      setMeals((previous) => previous.filter((meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`)))
       setSelectedSessions([])
       setSessionDialog(null)
-      setExpandedSessions((previous) =>
-        previous.filter((id) => !selected.has(id)),
-      )
+      setExpandedSessions((previous) => previous.filter((id) => !selected.has(id)))
       setCurrentPage(1)
+      setNotice(`${selected.size} sesi berhasil dihapus.`)
     } catch (error) {
       setNotice(error.message)
-      api("/meals", { method: "GET" })
-        .then(setMeals)
-        .catch((refreshError) => setNotice(refreshError.message))
+      api("/meals", { method: "GET" }).then(setMeals).catch((refreshError) => setNotice(refreshError.message))
     } finally {
       setActionBusy(false)
     }
@@ -5715,16 +5705,19 @@ function MealHistory({ navigate }) {
                           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">
                             <ScanLine aria-hidden="true" className="size-4" />
                           </span>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-800">
-                              {session.session_name}
-                            </p>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {session.scan_mode === "receipt"
-                                ? "Scan struk"
-                                : "Scan label"}
-                            </p>
-                          </div>
+                            <button
+                              className="min-w-0 text-left"
+                              onClick={() => session.scan_session_id && navigate(`/scanner/summary/${session.scan_session_id}`)}
+                              type="button"
+                            >
+                              <p className="font-semibold text-slate-800 hover:text-sky-700">
+                                {session.session_name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {session.scan_mode === "receipt" ? "Scan struk" : "Scan label"}
+                              </p>
+                            </button>
+
                         </div>
                       </td>
                       <td className="whitespace-nowrap p-4 text-slate-600">
@@ -5896,17 +5889,19 @@ function MealHistory({ navigate }) {
                     <ScanLine aria-hidden="true" className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-slate-800">
-                          {session.session_name}
-                        </h3>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {session.scan_mode === "receipt"
-                            ? "Scan struk"
-                            : "Scan label"}
-                        </p>
-                      </div>
+                    <button
+                      className="min-w-0 text-left"
+                      onClick={() => session.scan_session_id && navigate(`/scanner/summary/${session.scan_session_id}`)}
+                      type="button"
+                    >
+                      <h3 className="truncate text-left text-sm font-semibold text-slate-800 hover:text-sky-700">
+                        {session.session_name}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {session.scan_mode === "receipt" ? "Scan struk" : "Scan label"}
+                      </p>
+                    </button>
+                  </div>
                       <time className="text-right text-xs text-slate-500">
                         {new Date(session.created_at).toLocaleString("id-ID", {
                           dateStyle: "medium",
@@ -5948,8 +5943,6 @@ function MealHistory({ navigate }) {
                         }`}
                       />
                     </button>
-                  </div>
-                </div>
                 {expandedSessions.includes(session.id) && (
                   <div className="mt-3 space-y-2 pl-7">
                     {session.meals.map((meal) => (
@@ -6216,6 +6209,7 @@ function ResetPassword() {
       </main>
     )
 
+
   if (!user) return <Navigate replace to="/login" />
 
   const submit = async (event) => {
@@ -6265,6 +6259,17 @@ function ResetPassword() {
       </form>
     </main>
   )
+}
+function OnboardingRoute({ navigate }) {
+  const [state, setState] = useState("loading")
+  useEffect(() => {
+    api("/profile")
+      .then((profile) => setState(isCompleteProfile(profile) ? "complete" : "incomplete"))
+      .catch(() => setState("incomplete"))
+  }, [])
+  if (state === "loading") return <main className="grid min-h-screen place-items-center text-sm text-slate-500">Memuat profil…</main>
+  if (state === "complete") return <Navigate replace to="/dashboard" />
+  return <Onboarding navigate={navigate} />
 }
 
 export default function App() {
@@ -6332,7 +6337,7 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <Onboarding navigate={go} />
+            <OnboardingRoute navigate={go} />
           </ProtectedRoute>
         }
         path="/onboarding"
