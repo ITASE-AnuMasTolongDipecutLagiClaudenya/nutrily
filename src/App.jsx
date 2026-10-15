@@ -5116,53 +5116,14 @@ function Chat({ navigate, routeConversationId }) {
   )
 }
 
-const demoMeals = [
-  ["Nasi ayam panggang", "1 porsi · 320 g", 520, 38, 62, 14, 4, 680],
-  ["Salad alpukat dan telur", "1 mangkuk · 250 g", 385, 19, 24, 25, 3, 410],
-  ["Smoothie pisang", "1 gelas · 300 ml", 245, 8, 44, 5, 22, 120],
-  ["Oatmeal buah beri", "1 mangkuk · 280 g", 310, 12, 52, 7, 11, 95],
-  ["Salmon dan sayuran", "1 porsi · 350 g", 460, 41, 28, 21, 6, 590],
-  ["Roti gandum selai kacang", "2 lembar · 110 g", 335, 14, 36, 15, 8, 360],
-  ["Gado-gado", "1 porsi · 300 g", 420, 18, 48, 18, 9, 720],
-  ["Yoghurt granola", "1 mangkuk · 200 g", 275, 13, 37, 8, 16, 105],
-  ["Sup tahu dan sayur", "1 mangkuk · 320 g", 230, 17, 22, 9, 5, 540],
-].map(
-  (
-    [
-      name,
-      serving_size,
-      calories,
-      protein_g,
-      carbs_g,
-      fat_g,
-      sugar_g,
-      sodium_mg,
-    ],
-    index,
-  ) => {
-    const sessionIndex = Math.floor(index / 3)
-
-    return {
-      id: `demo-${index + 1}`,
-      name,
-      serving_size,
-      calories,
-      protein_g,
-      carbs_g,
-      fat_g,
-      sugar_g,
-      sodium_mg,
-      created_at: new Date(
-        Date.now() - sessionIndex * 24 * 3_600_000,
-      ).toISOString(),
-      scan_session_id: `demo-session-${sessionIndex + 1}`,
-      scan_mode: sessionIndex === 1 ? "receipt" : "label",
-    }
-  },
-)
-
 function MealHistory({ navigate }) {
-  const [meals, setMeals] = useState(demoMeals)
+  const [meals, setMeals] = useState([])
+
+  const [loading, setLoading] = useState(true)
+
+  const [actionBusy, setActionBusy] = useState(false)
+
+  const [notice, setNotice] = useState("")
 
   const [query, setQuery] = useState("")
 
@@ -5172,8 +5133,6 @@ function MealHistory({ navigate }) {
 
   const [expandedSessions, setExpandedSessions] = useState([])
 
-  const [sessionNames, setSessionNames] = useState({})
-
   const [sessionNameDraft, setSessionNameDraft] = useState("")
 
   const [sessionDialog, setSessionDialog] = useState(null)
@@ -5181,6 +5140,17 @@ function MealHistory({ navigate }) {
   const [scanTypeFilter, setScanTypeFilter] = useState("all")
 
   const [dayFilter, setDayFilter] = useState("")
+
+  useEffect(() => {
+    let active = true
+    api("/meals", { method: "GET" })
+      .then((rows) => active && setMeals(rows))
+      .catch((error) => active && setNotice(error.message))
+      .finally(() => active && setLoading(false))
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!sessionDialog) return
@@ -5226,6 +5196,8 @@ function MealHistory({ navigate }) {
         created_at: meal.created_at,
         calories: 0,
         scan_mode: meal.scan_mode || "label",
+        scan_session_id: meal.scan_session_id || "",
+        scan_session_name: meal.scan_session_name || "",
       }
 
       session.meals.push(meal)
@@ -5239,10 +5211,26 @@ function MealHistory({ navigate }) {
     }, {}),
   )
 
+  const sessionNumbers = new Map()
+  const sessionCounts = { receipt: 0, label: 0 }
+  ;[...sessions]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach((session) => {
+      sessionCounts[session.scan_mode] =
+        (sessionCounts[session.scan_mode] || 0) + 1
+      sessionNumbers.set(session.id, sessionCounts[session.scan_mode])
+    })
+  sessions.forEach((session) => {
+    session.session_name =
+      session.scan_session_name ||
+      `${
+        session.scan_mode === "receipt" ? "Scan struk" : "Scan label"
+      } ${sessionNumbers.get(session.id)}`
+  })
+
   const filteredSessions = sessions.filter((session) => {
     const searchText = query.trim().toLowerCase()
-    const sessionName =
-      sessionNames[session.id] || `Sesi scan ${sessions.indexOf(session) + 1}`
+    const sessionName = session.session_name
     const created = new Date(session.created_at)
     const sessionDay = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}-${String(created.getDate()).padStart(2, "0")}`
     const matchesFilters =
@@ -5259,6 +5247,11 @@ function MealHistory({ navigate }) {
   })
 
   const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize))
+
+  useEffect(
+    () => setCurrentPage((page) => Math.min(page, pageCount)),
+    [pageCount],
+  )
 
   const currentSessions = filteredSessions.slice(
     (currentPage - 1) * pageSize,
@@ -5298,21 +5291,41 @@ function MealHistory({ navigate }) {
 
   const startRenaming = () => {
     if (!selectedSession) return
-    setSessionNameDraft(
-      sessionNames[selectedSession.id] ||
-        `Sesi scan ${sessions.indexOf(selectedSession) + 1}`,
-    )
+    setSessionNameDraft(selectedSession.session_name)
     setSessionDialog({ type: "rename", ids: [selectedSession.id] })
   }
 
-  const saveSessionName = () => {
+  const saveSessionName = async () => {
     const name = sessionNameDraft.trim()
-    if (!name || sessionDialog?.type !== "rename") return
-    setSessionNames((previous) => ({
-      ...previous,
-      [sessionDialog.ids[0]]: name,
-    }))
-    setSessionDialog(null)
+    if (!name || sessionDialog?.type !== "rename" || !selectedSession) return
+    setActionBusy(true)
+    setNotice("")
+    try {
+      const session = sessions.find(({ id }) => id === sessionDialog.ids[0])
+      const query = session?.scan_session_id
+        ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
+        : `meal_id=${encodeURIComponent(session?.meals[0]?.id)}`
+      await api(`/meals?${query}`, {
+        method: "PATCH",
+        body: JSON.stringify({ scan_session_name: name }),
+      })
+      setMeals((previous) =>
+        previous.map((meal) =>
+          selectedSession.scan_session_id
+            ? meal.scan_session_id === selectedSession.scan_session_id
+              ? { ...meal, scan_session_name: name }
+              : meal
+            : meal.id === selectedSession.meals[0]?.id
+              ? { ...meal, scan_session_name: name }
+              : meal,
+        ),
+      )
+      setSessionDialog(null)
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setActionBusy(false)
+    }
   }
 
   const deleteSelectedSessions = () => {
@@ -5320,26 +5333,39 @@ function MealHistory({ navigate }) {
     setSessionDialog({ type: "delete", ids: selectedSessions })
   }
 
-  const confirmDeleteSessions = () => {
+  const confirmDeleteSessions = async () => {
     const selected = new Set(sessionDialog?.ids || [])
     if (!selected.size) return
 
-    setMeals((previous) =>
-      previous.filter(
-        (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
-      ),
-    )
-    setSelectedSessions([])
-    setSessionDialog(null)
-    setExpandedSessions((previous) =>
-      previous.filter((id) => !selected.has(id)),
-    )
-    setSessionNames((previous) =>
-      Object.fromEntries(
-        Object.entries(previous).filter(([id]) => !selected.has(id)),
-      ),
-    )
-    setCurrentPage(1)
+    setActionBusy(true)
+    setNotice("")
+    try {
+      for (const sessionId of selected) {
+        const session = sessions.find(({ id }) => id === sessionId)
+        const query = session?.scan_session_id
+          ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
+          : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
+        await api(`/meals?${query}`, { method: "DELETE" })
+      }
+      setMeals((previous) =>
+        previous.filter(
+          (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
+        ),
+      )
+      setSelectedSessions([])
+      setSessionDialog(null)
+      setExpandedSessions((previous) =>
+        previous.filter((id) => !selected.has(id)),
+      )
+      setCurrentPage(1)
+    } catch (error) {
+      setNotice(error.message)
+      api("/meals", { method: "GET" })
+        .then(setMeals)
+        .catch((refreshError) => setNotice(refreshError.message))
+    } finally {
+      setActionBusy(false)
+    }
   }
 
   return (
@@ -5362,7 +5388,19 @@ function MealHistory({ navigate }) {
             <Plus className="size-4" /> Catat makanan
           </Button>
         </div>
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+        {notice && (
+          <p
+            aria-live="polite"
+            className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
+            role="alert"
+          >
+            {notice}
+          </p>
+        )}
+        <section
+          aria-busy={loading || actionBusy}
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl"
+        >
           <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:px-6 sm:py-5">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
@@ -5378,9 +5416,6 @@ function MealHistory({ navigate }) {
                   makanan
                   {selectedSessions.length > 0 &&
                     ` · ${selectedSessions.length} dipilih`}
-                  <span className="ml-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                    Data contoh
-                  </span>
                 </p>
               </div>
               {selectedSessions.length > 0 && (
@@ -5504,8 +5539,7 @@ function MealHistory({ navigate }) {
                           </span>
                           <div className="min-w-0">
                             <p className="font-semibold text-slate-800">
-                              {sessionNames[session.id] ||
-                                `Sesi scan ${sessions.indexOf(session) + 1}`}
+                              {session.session_name}
                             </p>
                             <p className="mt-0.5 text-xs text-slate-500">
                               {session.scan_mode === "receipt"
@@ -5638,15 +5672,19 @@ function MealHistory({ navigate }) {
                         <Utensils aria-hidden="true" className="size-5" />
                       </span>
                       <p className="mt-3 font-medium text-slate-700">
-                        {query
-                          ? "Sesi scan tidak ditemukan"
-                          : "Belum ada sesi pemindaian"}
+                        {loading
+                          ? "Memuat riwayat makanan…"
+                          : query
+                            ? "Sesi scan tidak ditemukan"
+                            : "Belum ada sesi pemindaian"}
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {query
-                          ? "Coba kata kunci lain."
-                          : "Catat makanan untuk membuat sesi pemindaian pertama."}
-                      </p>
+                      {!loading && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          {query
+                            ? "Coba kata kunci lain."
+                            : "Catat makanan untuk membuat sesi pemindaian pertama."}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -5683,8 +5721,7 @@ function MealHistory({ navigate }) {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-semibold text-slate-800">
-                          {sessionNames[session.id] ||
-                            `Sesi scan ${sessions.indexOf(session) + 1}`}
+                          {session.session_name}
                         </h3>
                         <p className="mt-0.5 text-xs text-slate-500">
                           {session.scan_mode === "receipt"
@@ -5785,9 +5822,11 @@ function MealHistory({ navigate }) {
             ))}
             {!currentSessions.length && (
               <p className="px-4 py-12 text-center text-sm text-slate-500">
-                {query || scanTypeFilter !== "all" || dayFilter
-                  ? "Tidak ada sesi yang cocok dengan filter."
-                  : "Belum ada sesi pemindaian."}
+                {loading
+                  ? "Memuat riwayat makanan…"
+                  : query || scanTypeFilter !== "all" || dayFilter
+                    ? "Tidak ada sesi yang cocok dengan filter."
+                    : "Belum ada sesi pemindaian."}
               </p>
             )}
           </div>
@@ -5878,10 +5917,10 @@ function MealHistory({ navigate }) {
                     </button>
                     <button
                       className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-                      disabled={!sessionNameDraft.trim()}
+                      disabled={!sessionNameDraft.trim() || actionBusy}
                       type="submit"
                     >
-                      Simpan perubahan
+                      {actionBusy ? "Menyimpan…" : "Simpan perubahan"}
                     </button>
                   </div>
                 </form>
@@ -5912,9 +5951,10 @@ function MealHistory({ navigate }) {
                     <button
                       className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700"
                       onClick={confirmDeleteSessions}
+                      disabled={actionBusy}
                       type="button"
                     >
-                      Ya, hapus sesi
+                      {actionBusy ? "Menghapus…" : "Ya, hapus sesi"}
                     </button>
                   </div>
                 </>
