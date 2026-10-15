@@ -28,6 +28,7 @@ import {
   Apple,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   Bot,
   Camera,
   Check,
@@ -41,7 +42,6 @@ import {
   ExternalLink,
   History,
   HeartPulse,
-  Leaf,
   Menu,
   MoreHorizontal,
   Pencil,
@@ -92,6 +92,8 @@ import AuthGridBackground from "./components/AuthGridBackground"
 
 import ProfileDropdown from "./components/ui/profile-dropdown"
 
+import ProfileCard1 from "./components/ui/profile-card-1"
+
 import { ThemeToggle } from "./components/ui/theme-toggle"
 
 import { LimelightNav } from "./components/ui/limelight-nav"
@@ -111,6 +113,8 @@ import ScannerFlow from "./components/ScannerFlow"
 import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
+
+const profileBlue = "bg-sky-500 hover:bg-sky-600"
 
 const newConversationId = () =>
   "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
@@ -164,31 +168,140 @@ function Button({
   )
 }
 
-function Brand({ compact = false, light = false, logo = false }) {
+function HeaderBackButton({ label, onClick, disabled = false }) {
+  return (
+    <button
+      aria-label={label}
+      className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-all duration-300 hover:scale-[1.03] hover:bg-sky-600 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 disabled:pointer-events-none disabled:opacity-50"
+      onClick={onClick}
+      title={label}
+      disabled={disabled}
+      type="button"
+    >
+      <ArrowLeft className="size-4.5" />
+    </button>
+  )
+}
+
+function ScrollProgressBar() {
+  const progressRef = useRef(null)
+
+  useEffect(() => {
+    let frame = 0
+    const updateProgress = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const root = document.documentElement
+        const scrollHeight = Math.max(
+          root.scrollHeight,
+          document.body.scrollHeight,
+        )
+        const viewportHeight = root.clientHeight
+        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
+        const scrollTop = Math.max(
+          window.scrollY,
+          window.__lenis?.animatedScroll || 0,
+        )
+        const progress =
+          scrollTop + viewportHeight >= scrollHeight - 2
+            ? 1
+            : maxScroll > 0
+              ? scrollTop / maxScroll
+              : 0
+        const percentage = Math.min(1, Math.max(0, progress)) * 100
+        const bar = progressRef.current
+        if (!bar) return
+        bar.style.width = `${percentage}%`
+        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
+      })
+    }
+
+    updateProgress()
+    window.addEventListener("scroll", updateProgress, { passive: true })
+    window.addEventListener("resize", updateProgress)
+    const observer = new ResizeObserver(updateProgress)
+    observer.observe(document.documentElement)
+    observer.observe(document.body)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener("scroll", updateProgress)
+      window.removeEventListener("resize", updateProgress)
+      observer.disconnect()
+    }
+  }, [])
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 hidden h-[5px] overflow-hidden bg-sky-100/70 max-lg:block">
+      <div
+        aria-label="Progres scroll halaman"
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={0}
+        className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
+        ref={progressRef}
+        role="progressbar"
+      />
+    </div>
+  )
+}
+
+function UnsavedChangesDialog({ onCancel, onDiscard }) {
+  return (
+    <div
+      className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel()
+      }}
+    >
+      <section
+        aria-labelledby="unsaved-changes-title"
+        aria-modal="true"
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+        role="dialog"
+      >
+        <h2
+          className="text-lg font-semibold text-slate-900"
+          id="unsaved-changes-title"
+        >
+          Perubahan belum disimpan
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Perubahan yang dibuat akan hilang jika kembali sekarang.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            onClick={onCancel}
+            type="button"
+          >
+            Tetap di sini
+          </button>
+          <button
+            className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700"
+            onClick={onDiscard}
+            type="button"
+          >
+            Buang perubahan
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function Brand({ compact = false, light = false }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div
-        className={cn(
-          "grid size-9 place-items-center",
-
-          !logo && "rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200",
-        )}
-      >
-        {logo ? (
-          <img
-            alt=""
-            aria-hidden="true"
-            className="size-9 object-contain"
-            src={`${import.meta.env.BASE_URL}logo-biru.png`}
-          />
-        ) : (
-          <Leaf className="size-5" strokeWidth={2.4} />
-        )}
-      </div>
+      <img
+        alt={compact ? "Nutrily" : ""}
+        aria-hidden={!compact}
+        className="size-9 object-contain"
+        src={`${import.meta.env.BASE_URL}logo-biru.png`}
+      />
       {!compact && (
         <div
           className={cn(
-            "text-xl font-bold tracking-tight",
+            "text-2xl font-bold tracking-tight",
 
             light ? "text-white" : "text-black",
           )}
@@ -292,14 +405,14 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
   return (
     <aside
       aria-live="polite"
-      className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-white p-4 shadow-[0_16px_38px_-28px_rgba(14,165,233,.45)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_20px_42px_-26px_rgba(14,165,233,.4)] sm:p-5"
+      className="@container w-full min-w-0 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-white p-4 shadow-[0_16px_38px_-28px_rgba(14,165,233,.45)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_20px_42px_-26px_rgba(14,165,233,.4)] sm:p-5"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-sky-600 shadow-sm">
           <HeartPulse className="size-5" />
         </span>
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">
+        <div className="min-w-0 flex-1">
+          <h2 className="break-words text-sm font-bold text-slate-900">
             {targets ? "Estimasi kebutuhan personal" : "Acuan AKG harian"}
           </h2>
           <p className="mt-0.5 text-xs text-slate-500">
@@ -315,21 +428,21 @@ function AKGReferenceCard({ targets, age, dropdownOpensDown }) {
               Estimasi energi
               {targets.addition ? " · termasuk penyesuaian kondisi" : ""}
             </p>
-            <p className="mt-1 text-[1.7rem] font-bold tracking-[-0.04em] text-sky-700">
+            <p className="mt-1 break-words text-2xl font-bold tracking-[-0.04em] text-sky-700 sm:text-[1.7rem]">
               {targets.calories.toLocaleString("id-ID")}{" "}
               <span className="text-sm font-semibold">kkal</span>
             </p>
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1 xl:gap-0">
+          <dl className="mt-3 grid min-w-0 grid-cols-1 gap-2 @xs:grid-cols-2 xl:grid-cols-1 xl:gap-0">
             {nutrients.map(([label, amount, unit]) => (
               <div
-                className="rounded-lg bg-white/75 px-2.5 py-2.5 transition-colors hover:bg-white xl:flex xl:items-center xl:justify-between xl:rounded-none xl:border-b xl:border-sky-100 xl:bg-transparent xl:px-1"
+                className="min-w-0 rounded-lg bg-white/75 px-2.5 py-2.5 transition-colors hover:bg-white xl:flex xl:items-center xl:justify-between xl:rounded-none xl:border-b xl:border-sky-100 xl:bg-transparent xl:px-1"
                 key={label}
               >
-                <dt className="text-[13px] font-medium text-slate-500">
+                <dt className="break-words text-[13px] font-medium text-slate-500">
                   {label}
                 </dt>
-                <dd className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em] text-slate-800 xl:mt-0">
+                <dd className="mt-0.5 break-words text-[15px] font-semibold tracking-[-0.02em] text-slate-800 xl:mt-0">
                   {amount} {unit}
                 </dd>
               </div>
@@ -634,7 +747,7 @@ function LandingNav({ navigate }) {
               : "min-h-[68px] rounded-none bg-transparent px-1 py-4 sm:px-3",
           )}
         >
-          <Brand compact logo />
+          <Brand compact />
           <div className="flex items-center gap-2">
             <Button className="px-4 sm:px-5" onClick={() => navigate("auth")}>
               Mulai sekarang <ArrowRight className="size-4" />
@@ -976,7 +1089,7 @@ function Auth({ navigate }) {
         <div className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100 bg-white/90 p-4 backdrop-blur sm:p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="flex items-center justify-between lg:hidden">
             <button onClick={() => navigate("landing")}>
-              <Brand compact logo />
+              <Brand compact />
             </button>
             <button
               aria-label="Kembali ke beranda"
@@ -1148,7 +1261,7 @@ function ChoiceCard({
   )
 }
 
-function Onboarding({ navigate }) {
+function Onboarding({ navigate, editMode = false }) {
   const { user } = useAuth()
 
   const [step, setStep] = useState(0)
@@ -1165,6 +1278,8 @@ function Onboarding({ navigate }) {
 
   const [age, setAge] = useState("")
 
+  const [fullName, setFullName] = useState("")
+
   const [weight, setWeight] = useState("")
 
   const [height, setHeight] = useState("")
@@ -1173,7 +1288,13 @@ function Onboarding({ navigate }) {
 
   const [notice, setNotice] = useState("")
 
+  const [confirmUpdate, setConfirmUpdate] = useState(false)
+
   const [profileLoaded, setProfileLoaded] = useState(false)
+
+  const [initialValues, setInitialValues] = useState(null)
+
+  const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
 
   const [previewTargets, setPreviewTargets] = useState(null)
 
@@ -1193,6 +1314,22 @@ function Onboarding({ navigate }) {
     api("/profile")
 
       .then((profile) => {
+        const loadedFullName =
+          profile.full_name || user?.user_metadata?.full_name || ""
+        const loadedValues = [
+          loadedFullName,
+          profile.age ? String(profile.age) : "",
+          profile.gender || "",
+          profile.pregnancy_status || "",
+          profile.weight_kg ? String(profile.weight_kg) : "",
+          profile.height_cm ? String(profile.height_cm) : "",
+          profile.activity || "",
+          typeof profile.is_gym === "boolean" ? profile.is_gym : null,
+          profile.goal || "",
+        ]
+        setInitialValues(loadedValues)
+        setFullName(loadedFullName)
+
         if (profile.age) setAge(String(profile.age))
 
         if (profile.weight_kg) setWeight(String(profile.weight_kg))
@@ -1338,7 +1475,7 @@ function Onboarding({ navigate }) {
 
   const dropdownOpensDown = profileLoaded && (!formStarted || !previewTargets)
 
-  const finishOnboarding = async () => {
+  const finishOnboarding = async (confirmed = false) => {
     for (let index = 0; index < steps.length; index += 1) {
       const error = validateStep(index)
 
@@ -1380,6 +1517,12 @@ function Onboarding({ navigate }) {
       return
     }
 
+    if (editMode && !confirmed) {
+      setConfirmUpdate(true)
+
+      return
+    }
+
     setSaving(true)
 
     setNotice("")
@@ -1389,7 +1532,7 @@ function Onboarding({ navigate }) {
         method: "PUT",
 
         body: JSON.stringify({
-          full_name: user?.user_metadata?.full_name || "",
+          full_name: fullName || user?.user_metadata?.full_name || "",
 
           age: years,
 
@@ -1409,9 +1552,16 @@ function Onboarding({ navigate }) {
         }),
       })
 
-      navigate("/dashboard", { replace: true })
+      navigate(
+        editMode ? "/profile" : "/dashboard",
+        editMode
+          ? { replace: true, state: { notice: "Data berhasil diubah." } }
+          : { replace: true },
+      )
     } catch (error) {
       setNotice(error.message)
+
+      setConfirmUpdate(false)
     } finally {
       setSaving(false)
     }
@@ -1431,30 +1581,58 @@ function Onboarding({ navigate }) {
     setStep((current) => Math.min(3, current + 1))
   }
 
+  const onboardingValues = [
+    fullName,
+    age,
+    gender,
+    status,
+    weight,
+    height,
+    activity,
+    isGym,
+    goal,
+  ]
+  const hasUnsavedChanges =
+    editMode &&
+    profileLoaded &&
+    initialValues &&
+    JSON.stringify(onboardingValues) !== JSON.stringify(initialValues)
+
   return (
     <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between px-4 py-3.5 sm:min-h-[86px] sm:px-6 lg:px-8">
           <Brand />
-          <ProfileDropdown
-            data={{
-              name:
-                user?.user_metadata?.full_name ||
-                user?.email?.split("@")[0] ||
-                "Profil Nutrily",
-
-              email: user?.email || "",
-
-              avatar: user?.user_metadata?.avatar_url || "",
-            }}
-            onProfile={() => navigate("/profile")}
-            onSignOut={async () => {
-              await supabase?.auth.signOut()
-
-              navigate("/")
-            }}
-          />
+          {editMode && (
+            <HeaderBackButton
+              disabled={saving}
+              label="Kembali ke profil"
+              onClick={() =>
+                hasUnsavedChanges
+                  ? setShowUnsavedChanges(true)
+                  : navigate("/profile")
+              }
+            />
+          )}
+          {!editMode && (
+            <ProfileDropdown
+              data={{
+                name:
+                  user?.user_metadata?.full_name ||
+                  user?.email?.split("@")[0] ||
+                  "Profil Nutrily",
+                email: user?.email || "",
+                avatar: user?.user_metadata?.avatar_url || "",
+              }}
+              onProfile={() => navigate("/profile")}
+              onSignOut={async () => {
+                await supabase?.auth.signOut()
+                navigate("/")
+              }}
+            />
+          )}
         </div>
+        {editMode && <ScrollProgressBar />}
       </header>
 
       <div className="mx-auto grid max-w-7xl items-start gap-5 px-4 py-5 pb-10 sm:px-6 sm:py-8 lg:grid-cols-[180px_minmax(0,1fr)_270px] lg:gap-5 lg:px-6 xl:grid-cols-[210px_minmax(0,1fr)_310px] xl:gap-7 xl:px-8">
@@ -1477,15 +1655,12 @@ function Onboarding({ navigate }) {
                 )}
                 <button
                   aria-current={index === step ? "step" : undefined}
-                  disabled={index > step}
                   className={cn(
                     "relative z-10 flex min-h-[4.5rem] w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
 
                     index === step
                       ? "bg-white shadow-sm ring-1 ring-sky-100"
-                      : index < step
-                        ? "hover:bg-white"
-                        : "cursor-not-allowed",
+                      : "hover:bg-white",
                   )}
                   onClick={() => {
                     setNotice("")
@@ -1701,7 +1876,12 @@ function Onboarding({ navigate }) {
                   value={height}
                 />
               </div>
-              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-md hover:shadow-sky-200/70 sm:p-5">
+              <div
+                className={cn(
+                  "mt-6 rounded-2xl border border-sky-500 p-4 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-600 hover:shadow-xl sm:p-5",
+                  profileBlue,
+                )}
+              >
                 <div className="flex items-start gap-3">
                   <Sparkles className="mt-0.5 size-5 shrink-0 text-white" />
                   <div>
@@ -1816,7 +1996,12 @@ function Onboarding({ navigate }) {
                   description="Tingkatkan asupan secara seimbang"
                 />
               </div>
-              <div className="mt-6 rounded-2xl border border-sky-400 bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white shadow-lg shadow-sky-200/50 transition duration-200 hover:border-blue-700 hover:shadow-xl hover:shadow-sky-200/70 sm:flex sm:items-center sm:justify-between sm:p-5">
+              <div
+                className={cn(
+                  "mt-6 rounded-2xl border border-sky-500 p-4 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-600 hover:shadow-xl sm:flex sm:items-center sm:justify-between sm:p-5",
+                  profileBlue,
+                )}
+              >
                 <div>
                   <p className="text-sm font-semibold text-white">
                     Acuanmu siap dihitung
@@ -1844,14 +2029,19 @@ function Onboarding({ navigate }) {
               <ArrowLeft className="size-4" /> Kembali
             </Button>
             <Button
-              className="min-w-36 bg-gradient-to-r from-sky-500 to-blue-600 px-4 shadow-[0_10px_24px_-12px_rgba(2,132,199,.8)] transition duration-200 hover:-translate-y-0.5 hover:from-sky-600 hover:to-blue-700 hover:shadow-lg hover:shadow-sky-200 sm:px-5"
-              disabled={saving}
+              className={cn(
+                "min-w-36 px-4 shadow-[0_10px_24px_-12px_rgba(2,132,199,.8)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-200 sm:px-5",
+                profileBlue,
+              )}
+              disabled={saving || (editMode && !profileLoaded)}
               onClick={() => (step < 3 ? continueStep() : finishOnboarding())}
             >
               {saving
                 ? "Menyimpan…"
                 : step === 3
-                  ? "Simpan profil"
+                  ? editMode
+                    ? "Simpan perubahan"
+                    : "Simpan profil"
                   : "Lanjutkan"}
               {step === 3 ? (
                 <Sparkles className="size-4" />
@@ -1898,6 +2088,57 @@ function Onboarding({ navigate }) {
           </div>
         </div>
       )}
+      {confirmUpdate && (
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving)
+              setConfirmUpdate(false)
+          }}
+        >
+          <section
+            aria-labelledby="profile-update-dialog-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+            role="dialog"
+          >
+            <h2
+              className="text-lg font-semibold text-slate-900"
+              id="profile-update-dialog-title"
+            >
+              Simpan perubahan?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Data onboarding akan diperbarui dan digunakan untuk menghitung
+              kembali acuan gizimu.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                disabled={saving}
+                onClick={() => setConfirmUpdate(false)}
+                type="button"
+              >
+                Batal
+              </button>
+              <button
+                className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                disabled={saving}
+                onClick={() => finishOnboarding(true)}
+                type="button"
+              >
+                {saving ? "Menyimpan…" : "Ya, simpan perubahan"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {showUnsavedChanges && (
+        <UnsavedChangesDialog
+          onCancel={() => setShowUnsavedChanges(false)}
+          onDiscard={() => navigate("/profile")}
+        />
+      )}
     </main>
   )
 }
@@ -1905,13 +2146,11 @@ function Onboarding({ navigate }) {
 function ProfilePage({ navigate }) {
   const { user } = useAuth()
 
-  const avatarInput = useRef(null)
+  const location = useLocation()
 
   const [avatarUrl, setAvatarUrl] = useState(
     user?.user_metadata?.avatar_url || "",
   )
-
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   const [form, setForm] = useState({
     full_name: user?.user_metadata?.full_name || "",
@@ -1941,11 +2180,23 @@ function ProfilePage({ navigate }) {
 
   const [reload, setReload] = useState(0)
 
-  const [saving, setSaving] = useState(false)
-
   const [notice, setNotice] = useState("")
 
-  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    if (location.state?.notice) setNotice(location.state.notice)
+  }, [location.state?.notice])
+
+  useEffect(() => {
+    if (!notice) return
+
+    const timer = window.setTimeout(() => {
+      setNotice("")
+      if (location.state?.notice)
+        navigate("/profile", { replace: true, state: null })
+    }, 4500)
+
+    return () => window.clearTimeout(timer)
+  }, [notice, location.state?.notice])
 
   useEffect(() => {
     let active = true
@@ -1978,241 +2229,41 @@ function ProfilePage({ navigate }) {
 
           goal: profile.goal || "",
         })
-
-        setProfileLoaded(true)
       })
 
       .catch((error) => active && setLoadError(error.message))
 
-      .finally(() => active && setLoading(false))
+      .finally(() => {
+        if (active) {
+          setLoading(false)
+          setProfileLoaded(true)
+        }
+      })
 
     return () => {
       active = false
     }
   }, [reload, user?.user_metadata?.full_name])
 
-  const update = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }))
-
-    setNotice("")
-
-    setSaved(false)
-  }
-
-  const uploadAvatar = async (event) => {
-    const file = event.target.files?.[0]
-
-    event.target.value = ""
-
-    if (!file) return
-
-    if (!user?.id || !supabase) {
-      setNotice("Sesi tidak tersedia. Silakan masuk kembali.")
-
-      return
-    }
-
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
-
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setNotice("Ukuran foto maksimal 5 MB.")
-
-      return
-    }
-
-    setUploadingAvatar(true)
-
-    setNotice("")
-
-    try {
-      const path = `${user.id}/avatar`
-
-      const { error: uploadError } = await supabase.storage
-
-        .from("avatars")
-
-        .upload(path, file, {
-          cacheControl: "3600",
-
-          contentType: file.type,
-
-          upsert: true,
-        })
-
-      if (uploadError) throw uploadError
-
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
-
-      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
-
-      const { error: profileError } = await supabase.auth.updateUser({
-        data: { avatar_url: nextAvatarUrl },
-      })
-
-      if (profileError) throw profileError
-
-      setAvatarUrl(nextAvatarUrl)
-
-      setSaved(false)
-    } catch (error) {
-      setNotice(error.message || "Foto profil gagal diunggah.")
-    } finally {
-      setUploadingAvatar(false)
-    }
-  }
-
-  const saveProfile = async (event) => {
-    event.preventDefault()
-
-    const name = form.full_name.trim()
-
-    if (!name || name.length > 120) {
-      setNotice("Masukkan nama lengkap, maksimal 120 karakter.")
-
-      return
-    }
-
-    const onboarding = {
-      age: form.age,
-
-      gender: form.gender,
-
-      status: form.pregnancy_status,
-
-      weight: form.weight_kg,
-
-      height: form.height_cm,
-
-      activity: form.activity,
-
-      isGym: form.is_gym,
-
-      goal: form.goal,
-    }
-
-    for (let step = 0; step < 4; step += 1) {
-      const error = validateOnboardingStep(step, onboarding)
-
-      if (error) {
-        setNotice(error)
-
-        return
-      }
-    }
-
-    setSaving(true)
-
-    setNotice("")
-
-    setSaved(false)
-
-    try {
-      await api("/profile", {
-        method: "PUT",
-
-        body: JSON.stringify({
-          full_name: name,
-
-          age: Number(form.age),
-
-          gender: form.gender,
-
-          pregnancy_status:
-            form.gender === "Wanita" ? form.pregnancy_status : null,
-
-          weight_kg: Number(form.weight_kg),
-
-          height_cm: Number(form.height_cm),
-
-          activity: form.activity,
-
-          is_gym: form.is_gym,
-
-          goal: form.goal,
-        }),
-      })
-
-      const { error } = await supabase.auth.updateUser({
-        data: { full_name: name },
-      })
-
-      if (error) throw error
-
-      setForm((current) => ({ ...current, full_name: name }))
-
-      setSaved(true)
-    } catch (error) {
-      setNotice(error.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const activities = [
-    ["Minim gerak", "Lebih banyak duduk dan jarang berolahraga"],
-
-    ["Ringan", "Olahraga ringan 1–3 hari per minggu"],
-
-    ["Sedang", "Berolahraga 3–5 hari per minggu"],
-
-    ["Sangat aktif", "Olahraga berat 6–7 hari per minggu"],
-
-    ["Aktivitas fisik berat", "Pekerjaan atau latihan fisik berat"],
-  ]
-
   return (
     <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between px-4 py-3.5 sm:min-h-[86px] sm:px-6 lg:px-8">
           <Brand />
-          <ProfileDropdown
-            data={{
-              name:
-                form.full_name ||
-                user?.email?.split("@")[0] ||
-                "Profil Nutrily",
-
-              email: user?.email || "",
-
-              avatar: avatarUrl,
-            }}
-            onProfile={() => navigate("/profile")}
-            onSignOut={async () => {
-              await supabase?.auth.signOut()
-
-              navigate("/")
-            }}
-          />
+          <button
+            aria-label="Kembali ke dasbor"
+            className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-all duration-300 hover:scale-[1.03] hover:bg-sky-600 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
+            onClick={() => navigate("/dashboard")}
+            title="Kembali ke dasbor"
+            type="button"
+          >
+            <ArrowLeft className="size-4.5" />
+          </button>
         </div>
+        <ScrollProgressBar />
       </header>
 
-      <div className="mx-auto max-w-5xl px-4 py-8 pb-12 sm:px-6 sm:py-10 lg:px-8">
-        <button
-          className="mb-5 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-          onClick={() => navigate("/dashboard")}
-          type="button"
-        >
-          <ArrowLeft className="size-4" /> Kembali ke dasbor
-        </button>
-        <div className="mb-6 flex items-start gap-4">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-200">
-            <UserRound className="size-6" />
-          </span>
-          <div>
-            <Pill icon={Sparkles}>Profil Nutrily</Pill>
-            <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] text-slate-900 sm:text-4xl">
-              Edit profil
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-[15px]">
-              Perbarui nama dan data onboarding untuk menyesuaikan acuan gizimu.
-            </p>
-          </div>
-        </div>
-
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-12 sm:px-6 sm:py-10 lg:px-8">
         {loadError ? (
           <section className="rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
             <p className="text-sm text-rose-700" role="alert">
@@ -2227,288 +2278,415 @@ function ProfilePage({ navigate }) {
             </Button>
           </section>
         ) : (
-          <form className="space-y-5" onSubmit={saveProfile}>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ProfileCard1
+              avatarUrl={avatarUrl}
+              email={user?.email || ""}
+              name={loading ? "Memuat akun…" : form.full_name}
+              onEdit={() => navigate("/profile/account")}
+            />
+
             <section className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:p-8">
-              <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 pb-5">
-                <span className="grid size-10 place-items-center rounded-xl bg-sky-50 text-sky-600">
-                  <UserRound className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-bold text-slate-900">Informasi akun</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    Foto profil dan nama lengkap
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                  <h2 className="font-bold text-slate-900">Onboarding</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Acuan gizimu dihitung dari data berikut.
                   </p>
                 </div>
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  onChange={uploadAvatar}
-                  ref={avatarInput}
-                  type="file"
-                />
-                <div className="flex w-full items-center gap-3 sm:w-auto">
-                  <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-emerald-400 p-0.5">
-                    {avatarUrl ? (
-                      <img
-                        alt="Foto profil"
-                        className="size-full rounded-full bg-white object-cover"
-                        referrerPolicy="no-referrer"
-                        src={avatarUrl}
-                      />
-                    ) : (
-                      <span className="grid size-full place-items-center rounded-full bg-white text-lg font-bold text-sky-700">
-                        {(form.full_name || user?.email || "N")
-
-                          .split(/[ @]/)
-
-                          .filter(Boolean)
-
-                          .slice(0, 2)
-
-                          .map((part) => part[0].toUpperCase())
-
-                          .join("")}
-                      </span>
-                    )}
-                  </span>
-                  <div>
-                    <Button
-                      className="px-3"
-                      disabled={uploadingAvatar}
-                      onClick={() => avatarInput.current?.click()}
-                      variant="secondary"
-                    >
-                      <Camera className="size-4" />
-                      {uploadingAvatar ? "Mengunggah…" : "Ganti foto"}
-                    </Button>
-                    <p className="mt-1.5 text-xs text-slate-400">
-                      JPG, PNG, WebP · Maks. 5 MB
-                    </p>
-                  </div>
-                </div>
+                <Button
+                  className="group shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-all hover:scale-[1.03] active:scale-95"
+                  disabled={loading || !profileLoaded}
+                  onClick={() => navigate("/profile/onboarding")}
+                >
+                  <Pencil className="size-4" /> Edit data onboarding
+                  <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:rotate-45" />
+                </Button>
               </div>
-              <label className="mt-5 block max-w-xl">
-                <span className="mb-2 block text-sm font-semibold text-slate-800">
-                  Nama lengkap
+              {loading ? (
+                <p className="py-6 text-sm text-slate-500">Memuat data…</p>
+              ) : loadError ? (
+                <p className="py-6 text-sm text-rose-700" role="alert">
+                  {loadError}
+                </p>
+              ) : (
+                <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Usia", form.age ? `${form.age} tahun` : "—"],
+                    ["Jenis kelamin", form.gender || "—"],
+                    [
+                      "Berat badan",
+                      form.weight_kg ? `${form.weight_kg} kg` : "—",
+                    ],
+                    [
+                      "Tinggi badan",
+                      form.height_cm ? `${form.height_cm} cm` : "—",
+                    ],
+                    ["Aktivitas", form.activity || "—"],
+                    [
+                      "Latihan gym",
+                      form.is_gym
+                        ? "Rutin"
+                        : form.is_gym === false
+                          ? "Tidak rutin"
+                          : "—",
+                    ],
+                    ["Kehamilan/menyusui", form.pregnancy_status || "—"],
+                    ["Target", form.goal || "—"],
+                  ].map(([label, value]) => (
+                    <div
+                      className="rounded-xl bg-slate-50 px-4 py-3"
+                      key={label}
+                    >
+                      <dt className="text-xs font-medium text-slate-500">
+                        {label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-slate-800">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
+      {notice && (
+        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
+          <div
+            aria-atomic="true"
+            aria-live="polite"
+            className={cn(
+              "onboarding-toast pointer-events-auto flex items-start gap-3 rounded-2xl border bg-white/95 p-3.5 text-sm text-slate-700 shadow-[0_18px_48px_-20px_rgba(15,23,42,.28)] backdrop-blur-xl sm:p-4",
+              notice === "Data berhasil diubah." ||
+                notice === "Foto profil berhasil diperbarui."
+                ? "border-emerald-200/90"
+                : "border-rose-200/90",
+            )}
+            role={notice === "Data berhasil diubah." ? "status" : "alert"}
+          >
+            <span
+              className={cn(
+                "grid size-9 shrink-0 place-items-center rounded-xl",
+                notice === "Data berhasil diubah." ||
+                  notice === "Foto profil berhasil diperbarui."
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-rose-50 text-rose-600",
+              )}
+            >
+              {notice === "Data berhasil diubah." ||
+              notice === "Foto profil berhasil diperbarui." ? (
+                <Check aria-hidden="true" className="size-5" />
+              ) : (
+                <CircleAlert aria-hidden="true" className="size-5" />
+              )}
+            </span>
+            <p className="min-w-0 flex-1 pt-1 text-[13px] font-medium leading-5 sm:text-sm">
+              {notice}
+            </p>
+            <button
+              aria-label="Tutup notifikasi"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+              onClick={() => {
+                setNotice("")
+                if (location.state?.notice)
+                  navigate("/profile", { replace: true, state: null })
+              }}
+              type="button"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
+function ProfileAccountPage({ navigate }) {
+  const { user } = useAuth()
+  const avatarInput = useRef(null)
+  const [name, setName] = useState(user?.user_metadata?.full_name || "")
+  const [avatarUrl, setAvatarUrl] = useState(
+    user?.user_metadata?.avatar_url || "",
+  )
+  const [loading, setLoading] = useState(true)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const [hasProfile, setHasProfile] = useState(false)
+  const [initialName, setInitialName] = useState(
+    user?.user_metadata?.full_name || "",
+  )
+  const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [notice, setNotice] = useState("")
+  const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    api("/profile")
+      .then((profile) => {
+        if (active) {
+          setHasProfile(Boolean(profile.user_id))
+          setProfileLoaded(true)
+          const loadedName =
+            profile.full_name || user?.user_metadata?.full_name || ""
+          setName(loadedName)
+          setInitialName(loadedName)
+        }
+      })
+      .catch((error) => active && setNotice(error.message))
+      .finally(() => active && setLoading(false))
+    return () => {
+      active = false
+    }
+  }, [user?.user_metadata?.full_name])
+
+  const saveName = (event) => {
+    event.preventDefault()
+    const fullName = name.trim()
+    if (!fullName || fullName.length > 120) {
+      setNotice("Nama wajib diisi dan maksimal 120 karakter.")
+      return
+    }
+    if (hasUnsavedChanges) setShowSaveConfirmation(true)
+  }
+
+  const confirmSaveName = async () => {
+    const fullName = name.trim()
+    setSaving(true)
+    setNotice("")
+    try {
+      const query = supabase.from("profiles")
+      const { error } = hasProfile
+        ? await query.update({ full_name: fullName }).eq("user_id", user.id)
+        : await query.insert({ user_id: user.id, full_name: fullName })
+      if (error) throw error
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: fullName },
+      })
+      if (authError) throw authError
+      setHasProfile(true)
+      setName(fullName)
+      setInitialName(fullName)
+      navigate("/profile", {
+        replace: true,
+        state: { notice: "Data berhasil diubah." },
+      })
+    } catch (error) {
+      setNotice(error.message || "Nama profil gagal diperbarui.")
+      setShowSaveConfirmation(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasUnsavedChanges = name.trim() !== initialName.trim()
+
+  const uploadAvatar = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice("Ukuran foto maksimal 5 MB.")
+      return
+    }
+    setUploadingAvatar(true)
+    setNotice("")
+    try {
+      const path = `${user.id}/avatar`
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        })
+      if (error) throw error
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
+      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { avatar_url: nextAvatarUrl },
+      })
+      if (authError) throw authError
+      setAvatarUrl(nextAvatarUrl)
+      setNotice("Foto profil berhasil diperbarui.")
+    } catch (error) {
+      setNotice(error.message || "Foto profil gagal diunggah.")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  return (
+    <main className="font-poppins min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-100/70 via-slate-50 to-white text-slate-900">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between px-4 py-3.5 sm:min-h-[86px] sm:px-6 lg:px-8">
+          <Brand />
+          <HeaderBackButton
+            disabled={saving || uploadingAvatar}
+            label="Kembali ke profil"
+            onClick={() =>
+              hasUnsavedChanges
+                ? setShowUnsavedChanges(true)
+                : navigate("/profile")
+            }
+          />
+        </div>
+        <ScrollProgressBar />
+      </header>
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-12 sm:px-6 sm:py-10 lg:px-8">
+        <section className="min-h-[28rem] rounded-3xl border border-white/80 bg-white/90 p-6 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:min-h-[30rem] sm:p-9">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Edit profil
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Perbarui nama dan foto akunmu.
+          </p>
+          <form
+            className="mt-6 grid gap-6 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center sm:gap-8"
+            onSubmit={saveName}
+          >
+            <div className="flex flex-col items-center gap-4">
+              <span className="grid size-36 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-violet-400 p-1 text-3xl font-bold text-sky-700 sm:size-40">
+                {avatarUrl ? (
+                  <img
+                    alt="Foto profil"
+                    className="size-full rounded-full bg-white object-cover"
+                    src={avatarUrl}
+                  />
+                ) : (
+                  <span className="grid size-full place-items-center rounded-full bg-white">
+                    {(name || user?.email || "N").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </span>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={uploadAvatar}
+                ref={avatarInput}
+                type="file"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  aria-label={uploadingAvatar ? "Mengunggah foto" : "Edit foto"}
+                  className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={uploadingAvatar}
+                  onClick={() => avatarInput.current?.click()}
+                  type="button"
+                >
+                  <Pencil aria-hidden="true" className="size-4" />
+                </button>
+                {avatarUrl && (
+                  <button
+                    aria-label="Hapus foto profil"
+                    className="grid size-11 place-items-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+                    onClick={() =>
+                      setNotice("Aksi hapus foto akan tersedia nanti.")
+                    }
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-5">
+              <Input
+                label="Nama lengkap"
+                max={120}
+                onChange={setName}
+                placeholder="Nama lengkap"
+                value={name}
+              />
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold tracking-[-0.015em] text-slate-800">
+                  Email
                 </span>
                 <input
-                  autoComplete="name"
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[15px] text-slate-900 shadow-sm shadow-slate-900/[0.02] outline-none transition placeholder:text-slate-400 hover:border-sky-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                  maxLength={120}
-                  onChange={(event) => update("full_name", event.target.value)}
-                  placeholder="Nama lengkapmu"
-                  required
-                  value={form.full_name}
+                  className="h-12 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 text-[15px] text-slate-500 shadow-sm shadow-slate-900/[0.02]"
+                  readOnly
+                  value={user?.email || ""}
                 />
               </label>
-              <p className="mt-2 text-xs text-slate-400">{user?.email}</p>
-            </section>
-
-            <section className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:p-8">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                <span className="grid size-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <HeartPulse className="size-5" />
-                </span>
-                <div>
-                  <h2 className="font-bold text-slate-900">Data onboarding</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    Data ini memperbarui estimasi target harianmu.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Input
-                  label="Usia (tahun)"
-                  max={120}
-                  min={13}
-                  onChange={(value) => update("age", value)}
-                  placeholder="Contoh: 28"
-                  step={1}
-                  type="number"
-                  value={form.age}
-                />
-                <Input
-                  label="Berat badan (kg)"
-                  max={500}
-                  min={1}
-                  onChange={(value) => update("weight_kg", value)}
-                  placeholder="Contoh: 68"
-                  step={0.1}
-                  type="number"
-                  value={form.weight_kg}
-                />
-                <Input
-                  label="Tinggi badan (cm)"
-                  max={275}
-                  min={30}
-                  onChange={(value) => update("height_cm", value)}
-                  placeholder="Contoh: 172"
-                  step={0.1}
-                  type="number"
-                  value={form.height_cm}
-                />
-              </div>
-
-              <fieldset className="mt-7">
-                <legend className="mb-3 text-sm font-semibold text-slate-800">
-                  Jenis kelamin
-                </legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {["Pria", "Wanita"].map((gender) => (
-                    <ChoiceCard
-                      active={form.gender === gender}
-                      icon={UserRound}
-                      key={gender}
-                      onClick={() => update("gender", gender)}
-                      title={gender}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-
-              {form.gender === "Wanita" && (
-                <fieldset className="mt-7">
-                  <legend className="mb-3 text-sm font-semibold text-slate-800">
-                    Status kehamilan atau menyusui
-                  </legend>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {[
-                      "Tidak ada",
-
-                      "Trimester 1",
-
-                      "Trimester 2",
-
-                      "Trimester 3",
-
-                      "Menyusui 6 bulan pertama",
-
-                      "Menyusui 6 bulan kedua",
-                    ].map((status) => (
-                      <button
-                        aria-pressed={form.pregnancy_status === status}
-                        className={cn(
-                          "min-h-11 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
-
-                          form.pregnancy_status === status
-                            ? "border-sky-300 bg-sky-50 text-sky-800 ring-1 ring-sky-100"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/60",
-                        )}
-                        key={status}
-                        onClick={() => update("pregnancy_status", status)}
-                        type="button"
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              )}
-
-              <fieldset className="mt-7">
-                <legend className="mb-3 text-sm font-semibold text-slate-800">
-                  Aktivitas harian
-                </legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {activities.map(([title, description]) => (
-                    <ChoiceCard
-                      active={form.activity === title}
-                      className={
-                        title === "Aktivitas fisik berat" ? "sm:col-span-2" : ""
-                      }
-                      icon={Activity}
-                      key={title}
-                      onClick={() => update("activity", title)}
-                      title={title}
-                      description={description}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset className="mt-7">
-                <legend className="mb-3 text-sm font-semibold text-slate-800">
-                  Apakah kamu rutin latihan di gym?
-                </legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    [true, "Ya, rutin gym"],
-
-                    [false, "Tidak rutin gym"],
-                  ].map(([value, title]) => (
-                    <ChoiceCard
-                      active={form.is_gym === value}
-                      icon={Dumbbell}
-                      key={title}
-                      onClick={() => update("is_gym", value)}
-                      title={title}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset className="mt-7">
-                <legend className="mb-3 text-sm font-semibold text-slate-800">
-                  Targetmu
-                </legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["Menurunkan berat badan", TrendingUp],
-
-                    ["Menjaga berat badan", HeartPulse],
-
-                    ["Menambah berat badan", Dumbbell],
-                  ].map(([goal, Icon]) => (
-                    <ChoiceCard
-                      active={form.goal === goal}
-                      className={
-                        goal === "Menambah berat badan" ? "sm:col-span-2" : ""
-                      }
-                      icon={Icon}
-                      key={goal}
-                      onClick={() => update("goal", goal)}
-                      title={goal}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-            </section>
-
-            {(notice || saved) && (
-              <p
-                aria-live="polite"
-                className={cn(
-                  "rounded-xl px-4 py-3 text-sm",
-
-                  notice
-                    ? "bg-rose-50 text-rose-700"
-                    : "bg-emerald-50 text-emerald-700",
-                )}
-                role={notice ? "alert" : "status"}
-              >
-                {notice || "Profil berhasil diperbarui."}
-              </p>
-            )}
-            <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
               <Button
-                onClick={() => navigate("/dashboard")}
-                variant="secondary"
-              >
-                Batal
-              </Button>
-              <Button
-                className="min-w-40 bg-gradient-to-r from-sky-500 to-blue-600"
-                disabled={loading || !profileLoaded || saving}
+                className="w-full"
+                disabled={
+                  loading ||
+                  saving ||
+                  !profileLoaded ||
+                  !user ||
+                  !hasUnsavedChanges
+                }
                 type="submit"
               >
-                {loading || saving ? "Menyimpan…" : "Simpan perubahan"}
-                <Check className="size-4" />
+                {saving ? "Menyimpan…" : "Simpan perubahan"}
               </Button>
             </div>
           </form>
-        )}
+          {notice && (
+            <p className="mt-4 text-sm text-slate-600" role="status">
+              {notice}
+            </p>
+          )}
+        </section>
       </div>
+      {showUnsavedChanges && (
+        <UnsavedChangesDialog
+          onCancel={() => setShowUnsavedChanges(false)}
+          onDiscard={() => navigate("/profile")}
+        />
+      )}
+      {showSaveConfirmation && (
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving)
+              setShowSaveConfirmation(false)
+          }}
+        >
+          <section
+            aria-labelledby="account-save-dialog-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+            role="dialog"
+          >
+            <h2
+              className="text-lg font-semibold text-slate-900"
+              id="account-save-dialog-title"
+            >
+              Simpan perubahan?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Nama profil akan diperbarui.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                disabled={saving}
+                onClick={() => setShowSaveConfirmation(false)}
+                type="button"
+              >
+                Batal
+              </button>
+              <button
+                className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                disabled={saving}
+                onClick={confirmSaveName}
+                type="button"
+              >
+                {saving ? "Menyimpan…" : "Ya, simpan perubahan"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }
@@ -2813,7 +2991,7 @@ function OnboardingLegacy({ navigate }) {
               )}
             </Button>
           </div>
-          {notice && (
+      {false && notice && (
             <p
               aria-live="polite"
               className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
@@ -3022,7 +3200,7 @@ function AppShell({
             title={sidebarCollapsed ? "Buka sidebar" : undefined}
             type="button"
           >
-            <Brand compact logo />
+            <Brand compact />
             <span
               className={cn(
                 "text-xl font-semibold tracking-tight text-slate-900",
@@ -6166,6 +6344,22 @@ export default function App() {
           </ProtectedRoute>
         }
         path="/profile"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <ProfileAccountPage navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/profile/account"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <Onboarding editMode navigate={go} />
+          </ProtectedRoute>
+        }
+        path="/profile/onboarding"
       />
       <Route
         element={

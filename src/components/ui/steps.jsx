@@ -6,6 +6,7 @@ export default function BasicSteps({ currentStep, onStepChange, steps }) {
       <Steps.Root
         className="w-full max-w-2xl"
         count={steps.length}
+        linear={false}
         onStepChange={({ step }) => onStepChange(step)}
         step={currentStep}
       >
@@ -19,7 +20,6 @@ export default function BasicSteps({ currentStep, onStepChange, steps }) {
               <Steps.Trigger
                 aria-label={name}
                 className="flex min-h-11 items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed"
-                disabled={index > currentStep}
               >
                 <Steps.Indicator className="relative flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold data-complete:border-sky-600 data-complete:bg-sky-600 data-complete:text-white data-current:border-sky-600 data-current:bg-sky-600 data-current:text-white data-incomplete:border-slate-200 data-incomplete:bg-slate-100 data-incomplete:text-slate-500">
                   {index === currentStep && (
