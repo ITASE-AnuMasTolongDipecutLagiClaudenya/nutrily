@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 
 import {
   Navigate,
@@ -32,6 +32,8 @@ import {
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Clock3,
   Dumbbell,
@@ -42,9 +44,11 @@ import {
   Leaf,
   Menu,
   MoreHorizontal,
+  Pencil,
   Plus,
   ReceiptText,
   ScanLine,
+  Search,
   ShieldCheck,
   Sparkles,
   Target,
@@ -166,6 +170,7 @@ function Brand({ compact = false, light = false, logo = false }) {
       <div
         className={cn(
           "grid size-9 place-items-center",
+
           !logo && "rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-200",
         )}
       >
@@ -1899,52 +1904,86 @@ function Onboarding({ navigate }) {
 
 function ProfilePage({ navigate }) {
   const { user } = useAuth()
+
   const avatarInput = useRef(null)
+
   const [avatarUrl, setAvatarUrl] = useState(
     user?.user_metadata?.avatar_url || "",
   )
+
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
   const [form, setForm] = useState({
     full_name: user?.user_metadata?.full_name || "",
+
     age: "",
+
     gender: "",
+
     pregnancy_status: "",
+
     weight_kg: "",
+
     height_cm: "",
+
     activity: "",
+
     is_gym: null,
+
     goal: "",
   })
+
   const [loading, setLoading] = useState(true)
+
   const [profileLoaded, setProfileLoaded] = useState(false)
+
   const [loadError, setLoadError] = useState("")
+
   const [reload, setReload] = useState(0)
+
   const [saving, setSaving] = useState(false)
+
   const [notice, setNotice] = useState("")
+
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     let active = true
+
     setLoading(true)
+
     setLoadError("")
 
     api("/profile")
+
       .then((profile) => {
         if (!active) return
+
         setForm({
           full_name: profile.full_name || user?.user_metadata?.full_name || "",
+
           age: profile.age == null ? "" : String(profile.age),
+
           gender: profile.gender || "",
+
           pregnancy_status: profile.pregnancy_status || "",
+
           weight_kg: profile.weight_kg == null ? "" : String(profile.weight_kg),
+
           height_cm: profile.height_cm == null ? "" : String(profile.height_cm),
+
           activity: profile.activity || "",
+
           is_gym: typeof profile.is_gym === "boolean" ? profile.is_gym : null,
+
           goal: profile.goal || "",
         })
+
         setProfileLoaded(true)
       })
+
       .catch((error) => active && setLoadError(error.message))
+
       .finally(() => active && setLoading(false))
 
     return () => {
@@ -1954,47 +1993,70 @@ function ProfilePage({ navigate }) {
 
   const update = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }))
+
     setNotice("")
+
     setSaved(false)
   }
 
   const uploadAvatar = async (event) => {
     const file = event.target.files?.[0]
+
     event.target.value = ""
+
     if (!file) return
+
     if (!user?.id || !supabase) {
       setNotice("Sesi tidak tersedia. Silakan masuk kembali.")
+
       return
     }
+
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
+
       return
     }
+
     if (file.size > 5 * 1024 * 1024) {
       setNotice("Ukuran foto maksimal 5 MB.")
+
       return
     }
 
     setUploadingAvatar(true)
+
     setNotice("")
+
     try {
       const path = `${user.id}/avatar`
+
       const { error: uploadError } = await supabase.storage
+
         .from("avatars")
+
         .upload(path, file, {
           cacheControl: "3600",
+
           contentType: file.type,
+
           upsert: true,
         })
+
       if (uploadError) throw uploadError
 
       const { data } = supabase.storage.from("avatars").getPublicUrl(path)
+
       const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
+
       const { error: profileError } = await supabase.auth.updateUser({
         data: { avatar_url: nextAvatarUrl },
       })
+
       if (profileError) throw profileError
+
       setAvatarUrl(nextAvatarUrl)
+
       setSaved(false)
     } catch (error) {
       setNotice(error.message || "Foto profil gagal diunggah.")
@@ -2005,54 +2067,83 @@ function ProfilePage({ navigate }) {
 
   const saveProfile = async (event) => {
     event.preventDefault()
+
     const name = form.full_name.trim()
+
     if (!name || name.length > 120) {
       setNotice("Masukkan nama lengkap, maksimal 120 karakter.")
+
       return
     }
 
     const onboarding = {
       age: form.age,
+
       gender: form.gender,
+
       status: form.pregnancy_status,
+
       weight: form.weight_kg,
+
       height: form.height_cm,
+
       activity: form.activity,
+
       isGym: form.is_gym,
+
       goal: form.goal,
     }
+
     for (let step = 0; step < 4; step += 1) {
       const error = validateOnboardingStep(step, onboarding)
+
       if (error) {
         setNotice(error)
+
         return
       }
     }
 
     setSaving(true)
+
     setNotice("")
+
     setSaved(false)
+
     try {
       await api("/profile", {
         method: "PUT",
+
         body: JSON.stringify({
           full_name: name,
+
           age: Number(form.age),
+
           gender: form.gender,
+
           pregnancy_status:
             form.gender === "Wanita" ? form.pregnancy_status : null,
+
           weight_kg: Number(form.weight_kg),
+
           height_cm: Number(form.height_cm),
+
           activity: form.activity,
+
           is_gym: form.is_gym,
+
           goal: form.goal,
         }),
       })
+
       const { error } = await supabase.auth.updateUser({
         data: { full_name: name },
       })
+
       if (error) throw error
+
       setForm((current) => ({ ...current, full_name: name }))
+
       setSaved(true)
     } catch (error) {
       setNotice(error.message)
@@ -2063,9 +2154,13 @@ function ProfilePage({ navigate }) {
 
   const activities = [
     ["Minim gerak", "Lebih banyak duduk dan jarang berolahraga"],
+
     ["Ringan", "Olahraga ringan 1–3 hari per minggu"],
+
     ["Sedang", "Berolahraga 3–5 hari per minggu"],
+
     ["Sangat aktif", "Olahraga berat 6–7 hari per minggu"],
+
     ["Aktivitas fisik berat", "Pekerjaan atau latihan fisik berat"],
   ]
 
@@ -2080,12 +2175,15 @@ function ProfilePage({ navigate }) {
                 form.full_name ||
                 user?.email?.split("@")[0] ||
                 "Profil Nutrily",
+
               email: user?.email || "",
+
               avatar: avatarUrl,
             }}
             onProfile={() => navigate("/profile")}
             onSignOut={async () => {
               await supabase?.auth.signOut()
+
               navigate("/")
             }}
           />
@@ -2160,10 +2258,15 @@ function ProfilePage({ navigate }) {
                     ) : (
                       <span className="grid size-full place-items-center rounded-full bg-white text-lg font-bold text-sky-700">
                         {(form.full_name || user?.email || "N")
+
                           .split(/[ @]/)
+
                           .filter(Boolean)
+
                           .slice(0, 2)
+
                           .map((part) => part[0].toUpperCase())
+
                           .join("")}
                       </span>
                     )}
@@ -2272,16 +2375,22 @@ function ProfilePage({ navigate }) {
                   <div className="grid gap-2 sm:grid-cols-2">
                     {[
                       "Tidak ada",
+
                       "Trimester 1",
+
                       "Trimester 2",
+
                       "Trimester 3",
+
                       "Menyusui 6 bulan pertama",
+
                       "Menyusui 6 bulan kedua",
                     ].map((status) => (
                       <button
                         aria-pressed={form.pregnancy_status === status}
                         className={cn(
                           "min-h-11 rounded-xl border px-3 py-2.5 text-left text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600",
+
                           form.pregnancy_status === status
                             ? "border-sky-300 bg-sky-50 text-sky-800 ring-1 ring-sky-100"
                             : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/60",
@@ -2325,6 +2434,7 @@ function ProfilePage({ navigate }) {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     [true, "Ya, rutin gym"],
+
                     [false, "Tidak rutin gym"],
                   ].map(([value, title]) => (
                     <ChoiceCard
@@ -2345,7 +2455,9 @@ function ProfilePage({ navigate }) {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     ["Menurunkan berat badan", TrendingUp],
+
                     ["Menjaga berat badan", HeartPulse],
+
                     ["Menambah berat badan", Dumbbell],
                   ].map(([goal, Icon]) => (
                     <ChoiceCard
@@ -2368,6 +2480,7 @@ function ProfilePage({ navigate }) {
                 aria-live="polite"
                 className={cn(
                   "rounded-xl px-4 py-3 text-sm",
+
                   notice
                     ? "bg-rose-50 text-rose-700"
                     : "bg-emerald-50 text-emerald-700",
@@ -2754,37 +2867,57 @@ function AppShell({
 
   useEffect(() => {
     let frame = 0
+
     const updateProgress = () => {
       cancelAnimationFrame(frame)
+
       frame = requestAnimationFrame(() => {
         const lenis = window.__lenis
-        const maxScroll =
-          Math.max(
-            document.documentElement.scrollHeight,
-            document.body.scrollHeight,
-          ) - window.innerHeight
-        const progress = lenis
-          ? lenis.progress
+        const root = document.documentElement
+        const scrollHeight = Math.max(
+          root.scrollHeight,
+          document.body.scrollHeight,
+        )
+        const viewportHeight = root.clientHeight
+        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
+        const scrollTop = Math.max(window.scrollY, lenis?.animatedScroll || 0)
+        const atBottom = scrollTop + viewportHeight >= scrollHeight - 2
+        const progress = atBottom
+          ? 1
           : maxScroll > 0
-            ? window.scrollY / maxScroll
+            ? scrollTop / maxScroll
             : 0
+
         const bar = scrollProgressRef.current
+
         if (!bar) return
+
         const percentage = Math.min(1, Math.max(0, progress)) * 100
+
         bar.style.width = `${percentage}%`
+
         bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
       })
     }
 
     updateProgress()
+
     window.addEventListener("scroll", updateProgress, { passive: true })
+
     window.addEventListener("resize", updateProgress)
+
     const observer = new ResizeObserver(updateProgress)
+
     observer.observe(document.documentElement)
+    observer.observe(document.body)
+
     return () => {
       cancelAnimationFrame(frame)
+
       observer.disconnect()
+
       window.removeEventListener("scroll", updateProgress)
+
       window.removeEventListener("resize", updateProgress)
     }
   }, [])
@@ -2919,7 +3052,9 @@ function AppShell({
             className={cn(
               "sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8",
 
-              active === "dashboard" ? "h-20" : "h-16",
+              ["dashboard", "meals", "scanner"].includes(active)
+                ? "h-20"
+                : "h-16",
             )}
           >
             {minimal ? (
@@ -3197,25 +3332,59 @@ function Dashboard({ navigate }) {
 
   const startDailyConsultation = async () => {
     if (dailyConsulting || !summary) return
+
     setDailyConsulting(true)
+
     const conversationId = newConversationId()
-    const mealLines = (summary.meals || []).slice(0, 10).map(
-      (meal) => `- ${String(meal.name || "Makanan").slice(0, 80)} (${meal.serving_size || "1 sajian"}): ${meal.calories ?? "?"} kkal, P ${meal.protein_g ?? "?"}g, K ${meal.carbs_g ?? "?"}g, L ${meal.fat_g ?? "?"}g, gula ${meal.sugar_g ?? "?"}g, Na ${meal.sodium_mg ?? "?"}mg`,
-    )
-    const totals = ["calories", "protein_g", "carbs_g", "fat_g", "sugar_g", "sodium_mg"]
+
+    const mealLines = (summary.meals || [])
+      .slice(0, 10)
+      .map(
+        (meal) =>
+          `- ${String(meal.name || "Makanan").slice(0, 80)} (${meal.serving_size || "1 sajian"}): ${meal.calories ?? "?"} kkal, P ${meal.protein_g ?? "?"}g, K ${meal.carbs_g ?? "?"}g, L ${meal.fat_g ?? "?"}g, gula ${meal.sugar_g ?? "?"}g, Na ${meal.sodium_mg ?? "?"}mg`,
+      )
+
+    const totals = [
+      "calories",
+      "protein_g",
+      "carbs_g",
+      "fat_g",
+      "sugar_g",
+      "sodium_mg",
+    ]
+
       .map((key) => `${key}: ${summary.totals?.[key] ?? "belum diketahui"}`)
+
       .join(", ")
-    const targetValues = ["calories", "protein_g", "carbs_g", "fat_g", "sugar_g", "sodium_mg"]
+
+    const targetValues = [
+      "calories",
+      "protein_g",
+      "carbs_g",
+      "fat_g",
+      "sugar_g",
+      "sodium_mg",
+    ]
+
       .map((key) => `${key}: ${targets[key] ?? "belum ditetapkan"}`)
+
       .join(", ")
+
     try {
       await api("/chat", {
         method: "POST",
+
         body: JSON.stringify({
           conversation_id: conversationId,
-          message: `Ringkasan asupan harian Nutrily:\n${mealLines.join("\n") || "Belum ada makanan tercatat hari ini."}\n${(summary.meals || []).length > 25 ? `Makanan lain: ${(summary.meals || []).length - 25} item tambahan; gunakan total untuk analisis.\n` : ""}Total hari ini (${totals}). Target harian (${targetValues}). Analisis kecukupan, pola, dan saran perbaikan dibanding target. Jelaskan keterbatasan bila data kosong.`,
+
+          message: `Ringkasan asupan harian Nutrily:\n${mealLines.join("\n") || "Belum ada makanan tercatat hari ini."}\n${
+            (summary.meals || []).length > 25
+              ? `Makanan lain: ${(summary.meals || []).length - 25} item tambahan; gunakan total untuk analisis.\n`
+              : ""
+          }Total hari ini (${totals}). Target harian (${targetValues}). Analisis kecukupan, pola, dan saran perbaikan dibanding target. Jelaskan keterbatasan bila data kosong.`,
         }),
       })
+
       navigate(`/chat/${conversationId}`)
     } catch (error) {
       setLoadError(error.message)
@@ -3367,7 +3536,8 @@ function Dashboard({ navigate }) {
               disabled={dailyConsulting || !summary}
               variant="secondary"
             >
-              {dailyConsulting ? "Menganalisis…" : "Tanya Nutrily AI"} <ArrowRight className="size-4" />
+              {dailyConsulting ? "Menganalisis…" : "Tanya Nutrily AI"}{" "}
+              <ArrowRight className="size-4" />
             </Button>
             <div className="relative mt-6 flex items-center gap-4 rounded-2xl border border-white/15 bg-sky-600 p-4">
               <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white">
@@ -4207,50 +4377,61 @@ function ChatMarkdown({ content }) {
               {children}
             </h2>
           ),
+
           h2: ({ children }) => (
             <h3 className="mb-2 mt-5 text-lg font-bold text-slate-900 first:mt-0">
               {children}
             </h3>
           ),
+
           h3: ({ children }) => (
             <h4 className="mb-2 mt-4 text-base font-bold text-slate-900">
               {children}
             </h4>
           ),
+
           p: ({ children }) => (
             <p className="my-2 leading-7 text-slate-700 last:mb-0">
               {children}
             </p>
           ),
+
           ul: ({ children }) => (
             <ul className="my-3 list-disc space-y-1 pl-6 text-slate-700">
               {children}
             </ul>
           ),
+
           ol: ({ children }) => (
             <ol className="my-3 list-decimal space-y-1 pl-6 text-slate-700">
               {children}
             </ol>
           ),
+
           li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
+
           strong: ({ children }) => (
             <strong className="font-bold text-slate-900">{children}</strong>
           ),
+
           blockquote: ({ children }) => (
             <blockquote className="my-3 border-l-2 border-sky-300 pl-4 text-slate-600">
               {children}
             </blockquote>
           ),
+
           pre: ({ children }) => (
             <pre className="my-3 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm text-slate-100">
               {children}
             </pre>
           ),
+
           code: ({ children }) => (
             <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-sky-800">
               {children}
             </code>
           ),
+
           table: ({ children }) => (
             <div className="my-3 overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
@@ -4258,11 +4439,13 @@ function ChatMarkdown({ content }) {
               </table>
             </div>
           ),
+
           th: ({ children }) => (
             <th className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-800">
               {children}
             </th>
           ),
+
           td: ({ children }) => (
             <td className="border-b border-slate-100 px-3 py-2 text-slate-700">
               {children}
@@ -4278,8 +4461,10 @@ function ChatMarkdown({ content }) {
 
 function Chat({ navigate, routeConversationId }) {
   const { search } = useLocation()
+
   const requestedConversationId =
     routeConversationId || new URLSearchParams(search).get("conversation_id")
+
   const [message, setMessage] = useState("")
 
   const [image, setImage] = useState(null)
@@ -4320,28 +4505,41 @@ function Chat({ navigate, routeConversationId }) {
 
   useEffect(() => {
     api("/conversations")
+
       .then((items) => setConversations(Array.isArray(items) ? items : []))
+
       .catch((error) => setNotice(error.message))
   }, [])
 
   useEffect(() => {
     if (!requestedConversationId) return
+
     let active = true
+
     setConversationId(requestedConversationId)
+
     setMessages([])
+
     api(`/chat?conversation_id=${encodeURIComponent(requestedConversationId)}`)
+
       .then((result) => {
         if (!active) return
+
         setMessages(
           (Array.isArray(result?.messages) ? result.messages : [])
+
             .filter(Boolean)
+
             .map((item) => ({
               from: item.role === "assistant" ? "ai" : "user",
+
               text: item.content || "",
             })),
         )
       })
+
       .catch((error) => active && setNotice(error.message))
+
     return () => {
       active = false
     }
@@ -4364,17 +4562,25 @@ function Chat({ navigate, routeConversationId }) {
     setNotice("")
 
     setShowMobileChats(false)
+
     navigate(`/chat/${id}`)
   }
 
   const startNewChat = () => {
     setShowMobileChats(false)
+
     const id = newConversationId()
+
     setConversationId(id)
+
     setMessages([])
+
     setMessage("")
+
     setImage(null)
+
     setNotice("")
+
     navigate(`/chat/${id}`, { replace: true })
   }
 
@@ -4391,13 +4597,20 @@ function Chat({ navigate, routeConversationId }) {
       })
 
       setConversations((items) => items.filter((item) => item.id !== id))
+
       setShowMobileChats(false)
+
       if (conversationId === id) {
         const nextId = newConversationId()
+
         setConversationId(nextId)
+
         setMessages([])
+
         setMessage("")
+
         setImage(null)
+
         navigate(`/chat/${nextId}`, { replace: true })
       }
     } catch (error) {
@@ -4441,6 +4654,7 @@ function Chat({ navigate, routeConversationId }) {
     if ((!message.trim() && !image) || sending) return
 
     const question = message.trim()
+
     const activeConversationId = conversationId || newConversationId()
 
     setConversationId(activeConversationId)
@@ -4478,6 +4692,7 @@ function Chat({ navigate, routeConversationId }) {
           })()
         : JSON.stringify({
             message: question,
+
             conversation_id: activeConversationId,
           })
 
@@ -4494,7 +4709,9 @@ function Chat({ navigate, routeConversationId }) {
       ])
 
       const items = await api("/conversations").catch(() => null)
+
       if (items) setConversations(Array.isArray(items) ? items : [])
+
       if (!routeConversationId)
         navigate(`/chat/${activeConversationId}`, { replace: true })
     } catch (error) {
@@ -4537,6 +4754,7 @@ function Chat({ navigate, routeConversationId }) {
             aria-hidden="true"
             className={cn(
               "absolute inset-0 z-30 bg-slate-950/20 opacity-0 backdrop-blur-[1px] transition-opacity duration-300 motion-reduce:transition-none lg:hidden",
+
               showMobileChats
                 ? "pointer-events-auto opacity-100"
                 : "pointer-events-none",
@@ -4554,7 +4772,9 @@ function Chat({ navigate, routeConversationId }) {
             }}
             className={cn(
               "fixed inset-y-0 left-0 z-40 flex w-[min(82vw,260px)] min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-white/95 p-3 backdrop-blur-xl transition-[translate,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:bg-white/85",
+
               showMobileChats ? "translate-x-0" : "-translate-x-full",
+
               sidebarExpanded ? "items-stretch" : "items-center px-2",
             )}
           >
@@ -4571,12 +4791,14 @@ function Chat({ navigate, routeConversationId }) {
               aria-expanded={sidebarExpanded}
               className={cn(
                 "hidden shrink-0 place-items-center rounded-xl text-slate-500 transition-[width,height,margin,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-reduce:transition-none lg:grid",
+
                 sidebarExpanded
                   ? "size-10 self-start"
                   : "mx-auto size-8 self-center",
               )}
               onClick={() => {
                 setSidebarHovered(false)
+
                 setSidebarOpen((open) => !open)
               }}
               title={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
@@ -4588,6 +4810,7 @@ function Chat({ navigate, routeConversationId }) {
               aria-label="Percakapan baru"
               className={cn(
                 "mt-5 flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-sky-500 bg-sky-500 text-[11px] font-bold text-white transition-[width,padding,background-color,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-sky-600 hover:bg-sky-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-reduce:transition-none",
+
                 sidebarExpanded ? "w-full px-3" : "size-10",
               )}
               onClick={startNewChat}
@@ -4630,6 +4853,7 @@ function Chat({ navigate, routeConversationId }) {
                       <div
                         className={cn(
                           "group/history relative rounded-xl transition-colors",
+
                           conversationId === item.id
                             ? "bg-sky-50 ring-1 ring-sky-100"
                             : "hover:bg-slate-100",
@@ -4642,6 +4866,7 @@ function Chat({ navigate, routeConversationId }) {
                           }
                           className={cn(
                             "block w-full min-w-0 truncate rounded-xl px-3 py-2.5 pr-10 text-left text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600",
+
                             conversationId === item.id
                               ? "font-semibold text-sky-800"
                               : "text-slate-600 hover:text-slate-900",
@@ -4655,11 +4880,13 @@ function Chat({ navigate, routeConversationId }) {
                             initial={{ opacity: 0, x: -4 }}
                             transition={{
                               duration: 0.2,
+
                               ease: [0.22, 1, 0.36, 1],
                             }}
                           >
                             {String(item.preview || "Percakapan baru").slice(
                               0,
+
                               54,
                             )}
                           </motion.span>
@@ -4667,6 +4894,7 @@ function Chat({ navigate, routeConversationId }) {
                             {item.updated_at
                               ? new Date(item.updated_at).toLocaleDateString(
                                   "id-ID",
+
                                   { day: "numeric", month: "short" },
                                 )
                               : "Percakapan"}
@@ -4696,6 +4924,7 @@ function Chat({ navigate, routeConversationId }) {
             <div
               className={cn(
                 "mt-auto flex min-h-12 shrink-0 items-center overflow-hidden border-t border-slate-100 pt-3 transition-[gap,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+
                 sidebarExpanded ? "gap-2 px-2" : "justify-center",
               )}
             >
@@ -4836,13 +5065,16 @@ function Chat({ navigate, routeConversationId }) {
                               <motion.span
                                 animate={{
                                   opacity: [0.3, 1, 0.3],
+
                                   y: [0, -3, 0],
                                 }}
                                 className="size-1.5 rounded-full bg-sky-500"
                                 key={dot}
                                 transition={{
                                   duration: 0.9,
+
                                   repeat: Infinity,
+
                                   delay: dot * 0.15,
                                 }}
                               />
@@ -4884,80 +5116,812 @@ function Chat({ navigate, routeConversationId }) {
   )
 }
 
-function MealHistory({ navigate }) {
-  const [meals, setMeals] = useState([])
+const demoMeals = [
+  ["Nasi ayam panggang", "1 porsi · 320 g", 520, 38, 62, 14, 4, 680],
+  ["Salad alpukat dan telur", "1 mangkuk · 250 g", 385, 19, 24, 25, 3, 410],
+  ["Smoothie pisang", "1 gelas · 300 ml", 245, 8, 44, 5, 22, 120],
+  ["Oatmeal buah beri", "1 mangkuk · 280 g", 310, 12, 52, 7, 11, 95],
+  ["Salmon dan sayuran", "1 porsi · 350 g", 460, 41, 28, 21, 6, 590],
+  ["Roti gandum selai kacang", "2 lembar · 110 g", 335, 14, 36, 15, 8, 360],
+  ["Gado-gado", "1 porsi · 300 g", 420, 18, 48, 18, 9, 720],
+  ["Yoghurt granola", "1 mangkuk · 200 g", 275, 13, 37, 8, 16, 105],
+  ["Sup tahu dan sayur", "1 mangkuk · 320 g", 230, 17, 22, 9, 5, 540],
+].map(
+  (
+    [
+      name,
+      serving_size,
+      calories,
+      protein_g,
+      carbs_g,
+      fat_g,
+      sugar_g,
+      sodium_mg,
+    ],
+    index,
+  ) => {
+    const sessionIndex = Math.floor(index / 3)
 
-  const [error, setError] = useState("")
+    return {
+      id: `demo-${index + 1}`,
+      name,
+      serving_size,
+      calories,
+      protein_g,
+      carbs_g,
+      fat_g,
+      sugar_g,
+      sodium_mg,
+      created_at: new Date(
+        Date.now() - sessionIndex * 24 * 3_600_000,
+      ).toISOString(),
+      scan_session_id: `demo-session-${sessionIndex + 1}`,
+      scan_mode: sessionIndex === 1 ? "receipt" : "label",
+    }
+  },
+)
+
+function MealHistory({ navigate }) {
+  const [meals, setMeals] = useState(demoMeals)
+
+  const [query, setQuery] = useState("")
+
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const [selectedSessions, setSelectedSessions] = useState([])
+
+  const [expandedSessions, setExpandedSessions] = useState([])
+
+  const [sessionNames, setSessionNames] = useState({})
+
+  const [sessionNameDraft, setSessionNameDraft] = useState("")
+
+  const [sessionDialog, setSessionDialog] = useState(null)
+
+  const [scanTypeFilter, setScanTypeFilter] = useState("all")
+
+  const [dayFilter, setDayFilter] = useState("")
 
   useEffect(() => {
-    api("/meals")
+    if (!sessionDialog) return
+    const scrollY = window.__lenis?.scroll ?? window.scrollY
+    const previousBodyStyles = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      left: document.body.style.left,
+      right: document.body.style.right,
+      width: document.body.style.width,
+    }
+    const previousDocumentOverflow = document.documentElement.style.overflow
+    window.__lenis?.stop()
+    document.body.style.overflow = "hidden"
+    document.body.style.position = "fixed"
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = "0"
+    document.body.style.right = "0"
+    document.body.style.width = "100%"
+    document.documentElement.style.overflow = "hidden"
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSessionDialog(null)
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape)
+      Object.assign(document.body.style, previousBodyStyles)
+      document.documentElement.style.overflow = previousDocumentOverflow
+      window.scrollTo(0, scrollY)
+      window.__lenis?.start()
+    }
+  }, [sessionDialog])
 
-      .then(setMeals)
+  const pageSize = 6
 
-      .catch((reason) => setError(reason.message))
-  }, [])
+  const sessions = Object.values(
+    meals.reduce((groups, meal) => {
+      const id = meal.scan_session_id || `single-${meal.id}`
+      const session = groups[id] || {
+        id,
+        meals: [],
+        created_at: meal.created_at,
+        calories: 0,
+        scan_mode: meal.scan_mode || "label",
+      }
+
+      session.meals.push(meal)
+      session.created_at =
+        new Date(meal.created_at) > new Date(session.created_at)
+          ? meal.created_at
+          : session.created_at
+      session.calories += Number(meal.calories) || 0
+      groups[id] = session
+      return groups
+    }, {}),
+  )
+
+  const filteredSessions = sessions.filter((session) => {
+    const searchText = query.trim().toLowerCase()
+    const sessionName =
+      sessionNames[session.id] || `Sesi scan ${sessions.indexOf(session) + 1}`
+    const created = new Date(session.created_at)
+    const sessionDay = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}-${String(created.getDate()).padStart(2, "0")}`
+    const matchesFilters =
+      (scanTypeFilter === "all" || session.scan_mode === scanTypeFilter) &&
+      (!dayFilter || sessionDay === dayFilter)
+    const matchesSearch =
+      sessionName.toLowerCase().includes(searchText) ||
+      session.meals.some((meal) =>
+        `${meal.name} ${meal.serving_size || ""}`
+          .toLowerCase()
+          .includes(searchText),
+      )
+    return matchesFilters && matchesSearch
+  })
+
+  const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize))
+
+  const currentSessions = filteredSessions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  )
+
+  const allSelected =
+    currentSessions.length > 0 &&
+    currentSessions.every((session) => selectedSessions.includes(session.id))
+
+  const toggleSession = (sessionId) =>
+    setSelectedSessions((previous) =>
+      previous.includes(sessionId)
+        ? previous.filter((id) => id !== sessionId)
+        : [...previous, sessionId],
+    )
+
+  const toggleCurrentPage = () =>
+    setSelectedSessions((previous) =>
+      allSelected
+        ? previous.filter(
+            (id) => !currentSessions.some((session) => session.id === id),
+          )
+        : [...new Set([...previous, ...currentSessions.map(({ id }) => id)])],
+    )
+
+  const toggleExpanded = (sessionId) =>
+    setExpandedSessions((previous) =>
+      previous.includes(sessionId)
+        ? previous.filter((id) => id !== sessionId)
+        : [...previous, sessionId],
+    )
+
+  const selectedSession = sessions.find(
+    (session) => session.id === selectedSessions[0],
+  )
+
+  const startRenaming = () => {
+    if (!selectedSession) return
+    setSessionNameDraft(
+      sessionNames[selectedSession.id] ||
+        `Sesi scan ${sessions.indexOf(selectedSession) + 1}`,
+    )
+    setSessionDialog({ type: "rename", ids: [selectedSession.id] })
+  }
+
+  const saveSessionName = () => {
+    const name = sessionNameDraft.trim()
+    if (!name || sessionDialog?.type !== "rename") return
+    setSessionNames((previous) => ({
+      ...previous,
+      [sessionDialog.ids[0]]: name,
+    }))
+    setSessionDialog(null)
+  }
+
+  const deleteSelectedSessions = () => {
+    if (!selectedSessions.length) return
+    setSessionDialog({ type: "delete", ids: selectedSessions })
+  }
+
+  const confirmDeleteSessions = () => {
+    const selected = new Set(sessionDialog?.ids || [])
+    if (!selected.size) return
+
+    setMeals((previous) =>
+      previous.filter(
+        (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
+      ),
+    )
+    setSelectedSessions([])
+    setSessionDialog(null)
+    setExpandedSessions((previous) =>
+      previous.filter((id) => !selected.has(id)),
+    )
+    setSessionNames((previous) =>
+      Object.fromEntries(
+        Object.entries(previous).filter(([id]) => !selected.has(id)),
+      ),
+    )
+    setCurrentPage(1)
+  }
 
   return (
     <AppShell active="meals" navigate={navigate}>
-      <main className="mx-auto max-w-5xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
-        <div className="flex items-end justify-between gap-4">
+      <main className="mx-auto min-w-0 max-w-7xl px-4 pb-28 pt-7 sm:px-6 sm:pt-9 lg:px-8 lg:pb-10">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-semibold text-sky-600">Catatan gizi</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
               Riwayat makanan
             </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Semua makanan yang sudah kamu catat, tersusun dalam satu tempat.
+            </p>
           </div>
-          <Button onClick={() => navigate("/scanner")}>
+          <Button
+            className="w-full self-start sm:w-auto sm:self-auto"
+            onClick={() => navigate("/scanner")}
+          >
             <Plus className="size-4" /> Catat makanan
           </Button>
         </div>
-        {error && (
-          <p
-            role="alert"
-            className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-          >
-            {error}
-          </p>
-        )}
-        <section className="mt-7 divide-y divide-slate-100 rounded-3xl border border-slate-100 bg-white px-5 shadow-sm">
-          {meals.map((meal) => (
-            <button
-              className="flex w-full items-center gap-4 py-4 text-left hover:bg-sky-50/50"
-              key={meal.id}
-              onClick={() =>
-                meal.scan_session_id &&
-                navigate(`/scanner/summary/${meal.scan_session_id}`)
-              }
-              disabled={!meal.scan_session_id}
-            >
-              <span className="grid size-11 place-items-center rounded-xl bg-sky-50 text-sky-600">
-                <Utensils className="size-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-slate-800">
-                  {meal.name}
-                </span>
-                <span className="mt-1 block text-xs text-slate-400">
-                  {new Date(meal.created_at).toLocaleString("id-ID")} ·{" "}
-                  {meal.serving_size || "1 sajian"}
-                </span>
-              </span>
-              <span className="text-right text-sm font-semibold text-slate-700">
-                {meal.calories} kcal
-                <span className="block text-xs font-normal text-slate-400">
-                  P {meal.protein_g}g · K {meal.carbs_g}g · L {meal.fat_g}g
-                  <br />
-                  Gula {meal.sugar_g ?? 0}g · Natrium {meal.sodium_mg ?? 0}mg
-                </span>
-              </span>
-            </button>
-          ))}
-          {!meals.length && !error && (
-            <p className="py-14 text-center text-sm text-slate-400">
-              Belum ada makanan tersimpan.
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+          <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:px-6 sm:py-5">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-poppins text-base font-semibold text-slate-900">
+                  Sesi pemindaian
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {filteredSessions.length} sesi ·{" "}
+                  {filteredSessions.reduce(
+                    (total, session) => total + session.meals.length,
+                    0,
+                  )}{" "}
+                  makanan
+                  {selectedSessions.length > 0 &&
+                    ` · ${selectedSessions.length} dipilih`}
+                  <span className="ml-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    Data contoh
+                  </span>
+                </p>
+              </div>
+              {selectedSessions.length > 0 && (
+                <div className="flex shrink-0 items-center gap-2">
+                  {selectedSessions.length === 1 && (
+                    <button
+                      aria-label="Ubah nama sesi"
+                      className="grid size-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 sm:size-10"
+                      onClick={startRenaming}
+                      title="Ubah nama sesi"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" className="size-4" />
+                    </button>
+                  )}
+                  <button
+                    aria-label="Hapus sesi"
+                    className="grid size-9 place-items-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 sm:size-10"
+                    onClick={deleteSelectedSessions}
+                    title="Hapus sesi"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" className="size-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex xl:shrink-0 xl:items-center">
+              <select
+                aria-label="Filter jenis pemindaian"
+                className="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 font-poppins text-sm font-medium text-slate-800 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 sm:px-3 xl:w-auto"
+                onChange={(event) => {
+                  setScanTypeFilter(event.target.value)
+                  setCurrentPage(1)
+                  setSelectedSessions([])
+                }}
+                value={scanTypeFilter}
+              >
+                <option value="all">Semua jenis</option>
+                <option value="receipt">Scan struk</option>
+                <option value="label">Scan label</option>
+              </select>
+              <input
+                aria-label="Filter berdasarkan hari"
+                className="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 font-poppins text-sm font-medium text-slate-800 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 sm:px-3 xl:w-auto"
+                onChange={(event) => {
+                  setDayFilter(event.target.value)
+                  setCurrentPage(1)
+                  setSelectedSessions([])
+                }}
+                type="date"
+                value={dayFilter}
+              />
+              <label className="relative col-span-2 block w-full sm:col-span-2 xl:col-span-1 xl:w-64">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  aria-label="Cari makanan"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 font-poppins text-sm font-medium text-slate-800 outline-none transition placeholder:font-poppins placeholder:font-medium placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                  onChange={(event) => {
+                    setQuery(event.target.value)
+                    setCurrentPage(1)
+                    setSelectedSessions([])
+                  }}
+                  placeholder="Cari sesi atau makanan..."
+                  type="search"
+                  value={query}
+                />
+              </label>
+            </div>
+          </div>
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="w-12 p-4">
+                    <input
+                      aria-label="Pilih semua sesi di halaman"
+                      checked={allSelected}
+                      className="size-4 rounded border-slate-300 accent-sky-600"
+                      onChange={toggleCurrentPage}
+                      type="checkbox"
+                    />
+                  </th>
+                  <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Sesi scan
+                  </th>
+                  <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Waktu pemindaian
+                  </th>
+                  <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Total kalori
+                  </th>
+                  <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Total item
+                  </th>
+                  <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Detail
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {currentSessions.map((session, index) => (
+                  <Fragment key={session.id}>
+                    <tr className="transition-colors hover:bg-slate-50/70">
+                      <td className="p-4">
+                        <input
+                          aria-label={`Pilih sesi scan ${index + 1}`}
+                          checked={selectedSessions.includes(session.id)}
+                          className="size-4 rounded border-slate-300 accent-sky-600"
+                          onChange={() => toggleSession(session.id)}
+                          type="checkbox"
+                        />
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">
+                            <ScanLine aria-hidden="true" className="size-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800">
+                              {sessionNames[session.id] ||
+                                `Sesi scan ${sessions.indexOf(session) + 1}`}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {session.scan_mode === "receipt"
+                                ? "Scan struk"
+                                : "Scan label"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap p-4 text-slate-600">
+                        {new Date(session.created_at).toLocaleString("id-ID", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="whitespace-nowrap p-4 font-semibold text-slate-800">
+                        {session.calories.toLocaleString("id-ID")} kkal
+                      </td>
+                      <td className="whitespace-nowrap p-4 text-slate-600">
+                        {session.meals.length} makanan
+                      </td>
+                      <td className="p-4">
+                        <button
+                          aria-expanded={expandedSessions.includes(session.id)}
+                          className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-50"
+                          onClick={() => toggleExpanded(session.id)}
+                          type="button"
+                        >
+                          {expandedSessions.includes(session.id)
+                            ? "Tutup"
+                            : "Lihat item"}
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`size-3.5 transition-transform ${
+                              expandedSessions.includes(session.id)
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedSessions.includes(session.id) && (
+                      <tr className="bg-slate-50/70">
+                        <td className="px-5 pb-5 pt-1" colSpan={6}>
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <div className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Makanan dalam sesi ini
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                              {session.meals.map((meal) => (
+                                <div
+                                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                  key={meal.id}
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-600">
+                                      <Utensils
+                                        aria-hidden="true"
+                                        className="size-3.5"
+                                      />
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium text-slate-800">
+                                        {meal.name}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        {meal.serving_size || "1 sajian"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1.5 pl-11 sm:min-w-[270px] sm:pl-0">
+                                    {[
+                                      [meal.calories, "kcal", "bg-sky-500"],
+                                      [
+                                        `${meal.protein_g}g`,
+                                        "protein",
+                                        "bg-violet-500",
+                                      ],
+                                      [
+                                        `${meal.carbs_g}g`,
+                                        "karbo",
+                                        "bg-emerald-500",
+                                      ],
+                                      [
+                                        `${meal.fat_g}g`,
+                                        "lemak",
+                                        "bg-amber-400",
+                                      ],
+                                      [
+                                        `${meal.sugar_g ?? 0}g`,
+                                        "gula",
+                                        "bg-rose-400",
+                                      ],
+                                      [
+                                        `${meal.sodium_mg ?? 0}mg`,
+                                        "natrium",
+                                        "bg-orange-500",
+                                      ],
+                                    ].map(([value, label, color]) => (
+                                      <div
+                                        className="rounded-lg bg-slate-50 px-2 py-1.5 text-center"
+                                        key={label}
+                                      >
+                                        <p className="text-xs font-bold text-slate-800">
+                                          {value}
+                                        </p>
+                                        <p className="mt-1 flex items-center justify-center gap-1 text-[10px] text-slate-500">
+                                          <span
+                                            className={`size-1.5 rounded-full ${color}`}
+                                          />
+                                          {label}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+                {!currentSessions.length && (
+                  <tr>
+                    <td className="p-12 text-center" colSpan={6}>
+                      <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-500">
+                        <Utensils aria-hidden="true" className="size-5" />
+                      </span>
+                      <p className="mt-3 font-medium text-slate-700">
+                        {query
+                          ? "Sesi scan tidak ditemukan"
+                          : "Belum ada sesi pemindaian"}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {query
+                          ? "Coba kata kunci lain."
+                          : "Catat makanan untuk membuat sesi pemindaian pertama."}
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="divide-y divide-slate-100 lg:hidden">
+            {currentSessions.length > 0 && (
+              <label className="flex min-h-11 items-center gap-2 bg-slate-50 px-4 text-sm font-medium text-slate-600 sm:px-5">
+                <input
+                  aria-label="Pilih semua sesi di halaman"
+                  checked={allSelected}
+                  className="size-4 rounded border-slate-300 accent-sky-600"
+                  onChange={toggleCurrentPage}
+                  type="checkbox"
+                />
+                Pilih semua sesi
+              </label>
+            )}
+            {currentSessions.map((session, index) => (
+              <article className="p-4 sm:p-5" key={`mobile-${session.id}`}>
+                <div className="flex items-start gap-3">
+                  <input
+                    aria-label={`Pilih sesi scan ${index + 1}`}
+                    checked={selectedSessions.includes(session.id)}
+                    className="mt-1 size-4 shrink-0 rounded border-slate-300 accent-sky-600"
+                    onChange={() => toggleSession(session.id)}
+                    type="checkbox"
+                  />
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">
+                    <ScanLine aria-hidden="true" className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-800">
+                          {sessionNames[session.id] ||
+                            `Sesi scan ${sessions.indexOf(session) + 1}`}
+                        </h3>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {session.scan_mode === "receipt"
+                            ? "Scan struk"
+                            : "Scan label"}
+                        </p>
+                      </div>
+                      <time className="text-right text-xs text-slate-500">
+                        {new Date(session.created_at).toLocaleString("id-ID", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </time>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-sky-50/70 px-3 py-2">
+                        <p className="text-[11px] text-slate-500">
+                          Total kalori
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                          {session.calories.toLocaleString("id-ID")} kkal
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] text-slate-500">Total item</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                          {session.meals.length} makanan
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      aria-expanded={expandedSessions.includes(session.id)}
+                      className="mt-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                      onClick={() => toggleExpanded(session.id)}
+                      type="button"
+                    >
+                      {expandedSessions.includes(session.id)
+                        ? "Tutup detail"
+                        : "Lihat item"}
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={`size-4 transition-transform ${
+                          expandedSessions.includes(session.id)
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                {expandedSessions.includes(session.id) && (
+                  <div className="mt-3 space-y-2 pl-7">
+                    {session.meals.map((meal) => (
+                      <div
+                        className="rounded-xl border border-slate-100 bg-white p-3"
+                        key={meal.id}
+                      >
+                        <p className="text-sm font-medium text-slate-800">
+                          {meal.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {meal.serving_size || "1 sajian"}
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-1.5">
+                          {[
+                            [meal.calories, "kcal", "bg-sky-500"],
+                            [`${meal.protein_g}g`, "protein", "bg-violet-500"],
+                            [`${meal.carbs_g}g`, "karbo", "bg-emerald-500"],
+                            [`${meal.fat_g}g`, "lemak", "bg-amber-400"],
+                            [`${meal.sugar_g ?? 0}g`, "gula", "bg-rose-400"],
+                            [
+                              `${meal.sodium_mg ?? 0}mg`,
+                              "natrium",
+                              "bg-orange-500",
+                            ],
+                          ].map(([value, label, color]) => (
+                            <div
+                              className="rounded-lg bg-slate-50 px-1.5 py-2 text-center"
+                              key={label}
+                            >
+                              <p className="text-xs font-bold text-slate-800">
+                                {value}
+                              </p>
+                              <p className="mt-1 flex items-center justify-center gap-1 text-[10px] text-slate-500">
+                                <span
+                                  className={`size-1.5 rounded-full ${color}`}
+                                />
+                                {label}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+            {!currentSessions.length && (
+              <p className="px-4 py-12 text-center text-sm text-slate-500">
+                {query || scanTypeFilter !== "all" || dayFilter
+                  ? "Tidak ada sesi yang cocok dengan filter."
+                  : "Belum ada sesi pemindaian."}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <p className="text-sm text-slate-500">
+              {filteredSessions.length ? (
+                <>
+                  Menampilkan {(currentPage - 1) * pageSize + 1}–
+                  {Math.min(currentPage * pageSize, filteredSessions.length)}{" "}
+                  dari {filteredSessions.length} sesi
+                </>
+              ) : (
+                "Tidak ada catatan"
+              )}
             </p>
-          )}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                aria-label="Halaman sebelumnya"
+                className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((page) => page - 1)}
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" className="size-4" />
+              </button>
+              <span className="px-2 text-sm font-medium text-slate-700">
+                {currentPage} / {pageCount}
+              </span>
+              <button
+                aria-label="Halaman berikutnya"
+                className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={currentPage >= pageCount}
+                onClick={() => setCurrentPage((page) => page + 1)}
+                type="button"
+              >
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </button>
+            </div>
+          </div>
         </section>
+        {sessionDialog && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSessionDialog(null)
+            }}
+          >
+            <section
+              aria-labelledby="session-dialog-title"
+              aria-modal="true"
+              className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+              role="dialog"
+            >
+              {sessionDialog.type === "rename" ? (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    saveSessionName()
+                  }}
+                >
+                  <h2
+                    className="text-lg font-semibold text-slate-900"
+                    id="session-dialog-title"
+                  >
+                    Ubah nama sesi
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Nama baru akan terlihat di riwayat pemindaian.
+                  </p>
+                  <input
+                    aria-label="Nama sesi baru"
+                    autoFocus
+                    className="mt-5 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                    maxLength={60}
+                    onChange={(event) =>
+                      setSessionNameDraft(event.target.value)
+                    }
+                    required
+                    value={sessionNameDraft}
+                  />
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button
+                      className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                      onClick={() => setSessionDialog(null)}
+                      type="button"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                      disabled={!sessionNameDraft.trim()}
+                      type="submit"
+                    >
+                      Simpan perubahan
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <h2
+                    className="text-lg font-semibold text-slate-900"
+                    id="session-dialog-title"
+                  >
+                    Hapus sesi?
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Sesi
+                    {sessionDialog.ids.length > 1
+                      ? ` dan ${sessionDialog.ids.length - 1} sesi lainnya`
+                      : " ini"}{" "}
+                    beserta seluruh makanan di dalamnya akan dihapus. Tindakan
+                    ini tidak dapat dibatalkan.
+                  </p>
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button
+                      className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                      onClick={() => setSessionDialog(null)}
+                      type="button"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700"
+                      onClick={confirmDeleteSessions}
+                      type="button"
+                    >
+                      Ya, hapus sesi
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
+        )}
       </main>
     </AppShell>
   )
