@@ -328,6 +328,12 @@ function ScannerFlow({ navigate }) {
 
   const [busy, setBusy] = useState(false)
 
+  const [preparingName, setPreparingName] = useState(false)
+
+  const [sessionNameDraft, setSessionNameDraft] = useState("")
+
+  const [sessionNameDialog, setSessionNameDialog] = useState(false)
+
   const [notice, setNotice] = useState("")
 
   const [messages, setMessages] = useState([])
@@ -417,36 +423,88 @@ function ScannerFlow({ navigate }) {
   }
 
   useEffect(() => {
-    if (!sessionReady || !isSummary || !summaryId || session?.sessionId === summaryId) return
+    if (
+      !sessionReady ||
+      !isSummary ||
+      !summaryId ||
+      session?.sessionId === summaryId
+    )
+      return
+
     let active = true
+
     api(`/meals?scan_session_id=${encodeURIComponent(summaryId)}`)
+
       .then((items) => {
         if (!active) return
+
         if (!items.length) {
           navigate("/scanner", { replace: true })
+
           return
         }
+
         const restored = {
           sessionId: summaryId,
           mode: items[0].scan_mode || "label",
-          items: items.map(({ name, serving_size, calories, protein_g, carbs_g, fat_g, sugar_g, sodium_mg }) => ({ name, serving_size, calories, protein_g, carbs_g, fat_g, sugar_g, sodium_mg })),
+          sessionName:
+            items.find((item) => item.scan_session_name)?.scan_session_name ||
+            "",
+          items: items.map(
+            ({
+              name,
+              serving_size,
+              calories,
+              protein_g,
+              carbs_g,
+              fat_g,
+              sugar_g,
+              sodium_mg,
+            }) => ({
+              name,
+              serving_size,
+              calories,
+              protein_g,
+              carbs_g,
+              fat_g,
+              sugar_g,
+              sodium_mg,
+            }),
+          ),
           savedCount: items.length,
+
           advice: "",
         }
+
         saveSession(restored)
       })
+
       .catch((error) => active && setNotice(error.message))
-    return () => { active = false }
+
+    return () => {
+      active = false
+    }
   }, [isSummary, navigate, session?.sessionId, sessionReady, summaryId])
 
   useEffect(() => {
     if (
       !sessionReady ||
-      (isConfirm && (!session || !session.items?.length || session.mode !== mode)) ||
+      (isConfirm &&
+        (!session || !session.items?.length || session.mode !== mode)) ||
       (!isConfirm && !isSummary && pathname !== "/scanner" && !modeMatch)
     )
       navigate("/scanner", { replace: true })
-  }, [isConfirm, isSummary, mode, modeMatch, navigate, pathname, session?.items?.length, session?.mode, sessionReady])
+  }, [
+    isConfirm,
+    isSummary,
+    mode,
+    modeMatch,
+    navigate,
+    pathname,
+    session?.items?.length,
+    session?.mode,
+    sessionReady,
+  ])
 
   useEffect(() => {
     if (
@@ -553,6 +611,44 @@ function ScannerFlow({ navigate }) {
       items: sessionRef.current.items.filter((_, i) => i !== index),
     })
 
+  const requestConfirmation = async () => {
+    const current = sessionRef.current
+    if (!current?.items?.length || busy || preparingName) return
+    if (current.sessionName) return confirmItems()
+
+    setPreparingName(true)
+    let sessionNumber = 1
+    try {
+      const meals = await api("/meals", { method: "GET" })
+      const existingSessions = new Set(
+        meals
+          .filter(
+            (meal) => meal.scan_mode === current.mode && meal.scan_session_id,
+          )
+          .map((meal) => meal.scan_session_id),
+      )
+      sessionNumber += existingSessions.size
+    } catch {
+      // Keep naming available if history cannot be loaded; saving reports API errors.
+    }
+
+    const typeName = current.mode === "receipt" ? "Scan struk" : "Scan label"
+    setSessionNameDraft(current.sessionName || `${typeName} ${sessionNumber}`)
+    setSessionNameDialog(true)
+    setPreparingName(false)
+  }
+
+  const submitSessionName = (event) => {
+    event.preventDefault()
+    const current = sessionRef.current
+    const sessionName = sessionNameDraft.trim()
+    if (!current || !sessionName) return
+
+    saveSession({ ...current, sessionName })
+    setSessionNameDialog(false)
+    confirmItems()
+  }
+
   const confirmItems = async () => {
     const current = sessionRef.current
 
@@ -608,10 +704,13 @@ function ScannerFlow({ navigate }) {
 
           body: JSON.stringify({
             name: item.name || "Hasil pemindaian",
+
             ...nutrition,
+
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
             scan_session_id: id,
             scan_mode: saved.mode,
+            scan_session_name: saved.sessionName,
           }),
         })
 
@@ -862,15 +961,19 @@ function ScannerFlow({ navigate }) {
                     <Plus className="size-4" /> Pindai lagi
                   </Button>
                   <Button
-                    disabled={!session.items.length || busy}
-                    onClick={confirmItems}
+                    disabled={!session.items.length || busy || preparingName}
+                    onClick={requestConfirmation}
                   >
                     {busy ? (
                       <LoaderCircle className="size-4 animate-spin" />
                     ) : (
                       <Check className="size-4" />
                     )}
-                    {busy ? "Menyimpan…" : "Simpan hasil"}
+                    {busy
+                      ? "Menyimpan…"
+                      : preparingName
+                        ? "Menyiapkan…"
+                        : "Konfirmasi"}
                   </Button>
                 </div>
               </>
@@ -879,11 +982,56 @@ function ScannerFlow({ navigate }) {
         </main>
       )}
 
+      {sessionNameDialog && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]">
+          <form
+            aria-labelledby="scan-session-name-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+            onSubmit={submitSessionName}
+            role="dialog"
+          >
+            <h2
+              className="text-lg font-semibold text-slate-900"
+              id="scan-session-name-title"
+            >
+              Beri nama sesi
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Nama ini akan ditampilkan pada ringkasan pemindaian.
+            </p>
+            <input
+              aria-label="Nama sesi"
+              autoFocus
+              className="mt-5 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              maxLength={60}
+              onChange={(event) => setSessionNameDraft(event.target.value)}
+              required
+              value={sessionNameDraft}
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                onClick={() => setSessionNameDialog(false)}
+                variant="secondary"
+              >
+                Batal
+              </Button>
+              <Button disabled={!sessionNameDraft.trim() || busy} type="submit">
+                Konfirmasi
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {isSummary && session?.sessionId === summaryId && (
         <main className="mx-auto max-w-6xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
           <div className="mb-7">
             <p className="text-sm font-semibold text-sky-600">
               Hasil pemindaian
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
+              {session.sessionName || copy[session.mode]?.title}
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Ringkasan gizimu
