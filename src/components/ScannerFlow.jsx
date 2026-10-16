@@ -19,6 +19,7 @@ import {
 import { useLocation } from "react-router-dom"
 
 import { api } from "../lib/api"
+import NoticeAlert from "./ui/notice-alert"
 
 import { useAuth } from "../lib/AuthProvider"
 
@@ -236,12 +237,11 @@ function CameraView({ mode, onCapture, onClose }) {
       {!scanning && (
         <footer className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center bg-slate-950/55 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {notice && (
-            <p
-              role="alert"
-              className="absolute bottom-full left-4 right-4 mb-3 rounded-xl bg-rose-950/90 p-3 text-center text-sm text-rose-100 sm:left-auto sm:right-5 sm:max-w-md"
-            >
-              {notice}
-            </p>
+            <NoticeAlert
+              className="absolute bottom-full left-4 right-4 mb-3 bg-white/95 text-left sm:left-auto sm:right-5 sm:max-w-md"
+              message={notice}
+              variant="destructive"
+            />
           )}
           <div className="flex shrink-0 items-center gap-8">
             <button
@@ -858,12 +858,11 @@ function ScannerFlow({ navigate }) {
                     : "Ubah nama, hapus hasil keliru, atau pindai lagi untuk menambahkan item."}
                 </p>
                 {notice && (
-                  <p
-                    role="alert"
-                    className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-                  >
-                    {notice}
-                  </p>
+                  <NoticeAlert
+                    className="mt-5"
+                    message={notice}
+                    variant="destructive"
+                  />
                 )}
                 <section className="mt-6 rounded-2xl border border-slate-100 bg-white px-4 sm:px-6">
                   <div className="divide-y divide-slate-100">
@@ -1191,12 +1190,11 @@ function ScannerFlow({ navigate }) {
                 )}
               </div>
               {notice && (
-                <p
-                  role="alert"
-                  className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-                >
-                  {notice}
-                </p>
+                <NoticeAlert
+                  className="mt-4"
+                  message={notice}
+                  variant="destructive"
+                />
               )}
               <form
                 className="flex gap-2 border-t border-slate-100 p-4 sm:p-5"
