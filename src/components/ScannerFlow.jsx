@@ -7,6 +7,7 @@ import {
   Check,
   Copy,
   Images,
+  LoaderCircle,
   Plus,
   ReceiptText,
   ScanLine,
@@ -64,6 +65,42 @@ function readSession(storageKey) {
     return session && Array.isArray(session.items) ? session : null
   } catch {
     return null
+  }
+}
+
+async function optimizeScanImage(image) {
+  if (!globalThis.createImageBitmap) return image
+
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(image)
+    const maxDimension = 2400
+    let scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height))
+    if (scale === 1 && image.type === "image/jpeg" && image.size <= 2 * 1024 * 1024) return image
+
+    const canvas = document.createElement("canvas")
+    const context = canvas.getContext("2d")
+    if (!context) return image
+    let best = image
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      canvas.width = Math.round(bitmap.width * scale)
+      canvas.height = Math.round(bitmap.height * scale)
+      context.fillStyle = "#fff"
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.82 - attempt * 0.07),
+      )
+      if (!blob) return image
+      if (blob.size < best.size) best = new File([blob], "nutrily-scan.jpg", { type: "image/jpeg" })
+      if (best.size <= 2 * 1024 * 1024) return best
+      scale *= 0.85
+    }
+    return best
+  } catch {
+    return image
+  } finally {
+    bitmap?.close()
   }
 }
 
@@ -158,7 +195,7 @@ function CameraView({ mode, onCapture, onClose }) {
     setPreviewURL(URL.createObjectURL(image))
 
     try {
-      await onCapture(image)
+      await onCapture(await optimizeScanImage(image))
     } catch (error) {
       setNotice(
         error.message || "Pemindaian gagal. Coba foto yang lebih jelas.",

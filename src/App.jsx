@@ -4954,8 +4954,6 @@ function Chat({ navigate, routeConversationId }) {
 
     setMessages((current) => [...current, userMessage])
 
-    setConversationId(activeConversationId)
-
     setMessage("")
 
     setImage(null)
@@ -4990,6 +4988,8 @@ function Chat({ navigate, routeConversationId }) {
 
         { from: "ai", text: result.answer },
       ])
+
+      setConversationId(activeConversationId)
 
       const items = await api("/conversations").catch(() => null)
 
