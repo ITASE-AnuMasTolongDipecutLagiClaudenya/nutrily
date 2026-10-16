@@ -1,16 +1,21 @@
-import { ChevronDown, LogOut, UserRound } from "lucide-react"
+import { ChevronDown, LogOut, Pencil } from "lucide-react"
+import { useState } from "react"
+import ProfilePreviewDialog from "../ProfilePreviewDialog"
+import ConfirmDialog from "./confirm-dialog"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
 export default function ProfileDropdown({
   data,
 
-  onProfile,
+  onEditProfile,
 
   onSignOut,
 
   className = "",
 }) {
+  const [showProfile, setShowProfile] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
   const initials = (data.name || data.email || "N")
 
     .split(/[ @]/)
@@ -59,7 +64,14 @@ export default function ProfileDropdown({
 
       <div className="absolute right-0 top-full z-[60] mt-3 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.22)] ring-1 ring-slate-100">
         <div className="mb-2 flex min-w-0 items-center gap-3 border-b border-sky-100/80 px-2 pb-3 pt-1">
-          <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 p-0.5 shadow-md shadow-sky-200/70">
+          <button
+            aria-label="Perbesar foto profil"
+            className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-500 p-0.5 shadow-md shadow-sky-200/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+            onClick={() => {
+              setShowProfile(true)
+            }}
+            type="button"
+          >
             {data.avatar ? (
               <img
                 alt=""
@@ -72,7 +84,7 @@ export default function ProfileDropdown({
                 {initials}
               </span>
             )}
-          </span>
+          </button>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-slate-900">
               {data.name}
@@ -86,24 +98,18 @@ export default function ProfileDropdown({
           className="group/item flex min-h-11 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-sm font-black text-slate-700 transition-all duration-300 ease-out hover:translate-x-1 hover:border-sky-100 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:text-sky-700 hover:shadow-[0_8px_20px_-14px_rgba(14,165,233,0.8)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-sky-600 motion-reduce:transition-none"
           onClick={(event) => {
             event.currentTarget.closest("details").open = false
-
-            onProfile()
+            onEditProfile?.()
           }}
           type="button"
         >
-          <UserRound
-            aria-hidden="true"
-            className="size-4 text-sky-600 transition-transform duration-300 group-hover/item:scale-110"
-            strokeWidth={3}
-          />
-          Profil
+          <Pencil aria-hidden="true" className="size-4" />
+          Edit profil
         </button>
         <button
           className="group/item flex min-h-11 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-sm font-black text-slate-600 transition-all duration-300 ease-out hover:translate-x-1 hover:border-rose-100 hover:bg-gradient-to-r hover:from-rose-50 hover:to-red-50 hover:text-rose-700 hover:shadow-[0_8px_20px_-14px_rgba(225,29,72,0.45)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-rose-600 motion-reduce:transition-none"
           onClick={(event) => {
-            if (!window.confirm("Yakin ingin keluar dari akun?")) return
             event.currentTarget.closest("details").open = false
-            onSignOut()
+            setConfirmSignOut(true)
           }}
           type="button"
         >
@@ -115,6 +121,25 @@ export default function ProfileDropdown({
           Keluar
         </button>
       </div>
+      {showProfile && (
+        <ProfilePreviewDialog
+          avatar={data.avatar}
+          name={data.name}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
+      {confirmSignOut && (
+        <ConfirmDialog
+          title="Keluar dari akun?"
+          description="Kamu perlu masuk kembali untuk mengakses akun Nutrily."
+          confirmLabel="Keluar"
+          onCancel={() => setConfirmSignOut(false)}
+          onConfirm={() => {
+            setConfirmSignOut(false)
+            onSignOut?.()
+          }}
+        />
+      )}
     </details>
   )
 }

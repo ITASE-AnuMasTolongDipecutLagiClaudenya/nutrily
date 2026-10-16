@@ -44,13 +44,13 @@ export function validateOnboardingStep(step, profile) {
     const height = Number(profile.height)
     if (
       !Number.isFinite(weight) ||
-      weight < 1 ||
-      weight > 500 ||
+      weight < 20 ||
+      weight > 200 ||
       !Number.isFinite(height) ||
       height < 30 ||
-      height > 275
+      height > 200
     )
-      return "Masukkan berat 1–500 kg dan tinggi 30–275 cm."
+      return "Masukkan berat 20–200 kg dan tinggi 30–200 cm."
   }
 
   if (step === 2) {
@@ -64,4 +64,12 @@ export function validateOnboardingStep(step, profile) {
     return "Pilih targetmu untuk melanjutkan."
 
   return ""
+}
+
+export function firstInvalidOnboardingStep(targetStep, profile) {
+  for (let step = 0; step < targetStep; step += 1) {
+    const error = validateOnboardingStep(step, profile)
+    if (error) return { step, error }
+  }
+  return null
 }

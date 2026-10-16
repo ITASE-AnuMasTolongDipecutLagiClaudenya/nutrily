@@ -74,7 +74,17 @@ import { api, verifyTurnstile } from "./lib/api"
 
 import { useAuth } from "./lib/AuthProvider"
 
-import { hasOnboardingInput, validateOnboardingStep } from "./lib/onboarding"
+import {
+  firstInvalidOnboardingStep,
+  hasOnboardingInput,
+  validateOnboardingStep,
+} from "./lib/onboarding"
+
+import {
+  getOriginalGoogleAvatarUrl,
+  getProfileAvatarUrl,
+  hasCustomAvatar,
+} from "./lib/avatar"
 
 import { supabase } from "./lib/supabase"
 
@@ -94,8 +104,6 @@ import ProfileDropdown from "./components/ui/profile-dropdown"
 
 import ProfileCard1 from "./components/ui/profile-card-1"
 
-import { ThemeToggle } from "./components/ui/theme-toggle"
-
 import { LimelightNav } from "./components/ui/limelight-nav"
 
 import CalorieChart from "./components/ui/calorie-chart"
@@ -112,7 +120,30 @@ import ScannerFlow from "./components/ScannerFlow"
 
 import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
+import AvatarCropper from "./components/AvatarCropper"
+
+import ProfilePreviewDialog from "./components/ProfilePreviewDialog"
+
+import NoticeAlert from "./components/ui/notice-alert"
+
+import ConfirmDialog from "./components/ui/confirm-dialog"
+
 const cn = (...classes) => classes.filter(Boolean).join(" ")
+
+const isCompleteProfile = (profile) =>
+  Boolean(
+    profile?.full_name?.trim() &&
+      Number.isInteger(Number(profile.age)) &&
+      profile.gender &&
+      (profile.gender !== "Wanita" || profile.pregnancy_status) &&
+      Number(profile.weight_kg) >= 20 &&
+      Number(profile.weight_kg) <= 200 &&
+      Number(profile.height_cm) >= 30 &&
+      Number(profile.height_cm) <= 200 &&
+      profile.activity &&
+      typeof profile.is_gym === "boolean" &&
+      profile.goal,
+  )
 
 const profileBlue = "bg-sky-500 hover:bg-sky-600"
 
@@ -188,44 +219,67 @@ function ScrollProgressBar() {
 
   useEffect(() => {
     let frame = 0
+
     const updateProgress = () => {
       cancelAnimationFrame(frame)
+
       frame = requestAnimationFrame(() => {
         const root = document.documentElement
+
         const scrollHeight = Math.max(
           root.scrollHeight,
+
           document.body.scrollHeight,
         )
+
         const viewportHeight = root.clientHeight
+
         const maxScroll = Math.max(0, scrollHeight - viewportHeight)
+
         const scrollTop = Math.max(
           window.scrollY,
+
           window.__lenis?.animatedScroll || 0,
         )
+
         const progress =
           scrollTop + viewportHeight >= scrollHeight - 2
             ? 1
             : maxScroll > 0
               ? scrollTop / maxScroll
               : 0
+
         const percentage = Math.min(1, Math.max(0, progress)) * 100
+
         const bar = progressRef.current
+
         if (!bar) return
+
         bar.style.width = `${percentage}%`
+
         bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
       })
     }
 
     updateProgress()
+
     window.addEventListener("scroll", updateProgress, { passive: true })
+
     window.addEventListener("resize", updateProgress)
+
     const observer = new ResizeObserver(updateProgress)
+
     observer.observe(document.documentElement)
+
     observer.observe(document.body)
+
     return () => {
       cancelAnimationFrame(frame)
+
       window.removeEventListener("scroll", updateProgress)
+
       window.removeEventListener("resize", updateProgress)
+
       observer.disconnect()
     }
   }, [])
@@ -331,7 +385,11 @@ function Input({
 
   max,
 
+  maxLength,
+
   step,
+
+  inputRef,
 }) {
   return (
     <label className="block">
@@ -349,9 +407,11 @@ function Input({
             Icon ? "pl-11" : "pl-4",
           )}
           onChange={(event) => onChange?.(event.target.value)}
+          ref={inputRef}
           placeholder={placeholder}
           min={min}
           max={max}
+          maxLength={maxLength}
           step={step}
           required
           type={type}
@@ -1011,7 +1071,6 @@ function Auth({ navigate }) {
   const [busy, setBusy] = useState(false)
 
   const [notice, setNotice] = useState("")
-
   const [turnstileToken, setTurnstileToken] = useState("")
 
   const [turnstileKey, setTurnstileKey] = useState(0)
@@ -1181,14 +1240,7 @@ function Auth({ navigate }) {
               </p>
             </div>
           </div>
-          {notice && (
-            <p
-              aria-live="polite"
-              className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-800"
-            >
-              {notice}
-            </p>
-          )}
+          {notice && <NoticeAlert className="mt-4" message={notice} />}
         </div>
       </section>
     </main>
@@ -1316,18 +1368,29 @@ function Onboarding({ navigate, editMode = false }) {
       .then((profile) => {
         const loadedFullName =
           profile.full_name || user?.user_metadata?.full_name || ""
+
         const loadedValues = [
           loadedFullName,
+
           profile.age ? String(profile.age) : "",
+
           profile.gender || "",
+
           profile.pregnancy_status || "",
+
           profile.weight_kg ? String(profile.weight_kg) : "",
+
           profile.height_cm ? String(profile.height_cm) : "",
+
           profile.activity || "",
+
           typeof profile.is_gym === "boolean" ? profile.is_gym : null,
+
           profile.goal || "",
         ]
+
         setInitialValues(loadedValues)
+
         setFullName(loadedFullName)
 
         if (profile.age) setAge(String(profile.age))
@@ -1365,11 +1428,11 @@ function Onboarding({ navigate, editMode = false }) {
       years > 120 ||
       !gender ||
       !Number.isFinite(kilograms) ||
-      kilograms < 1 ||
-      kilograms > 500 ||
+      kilograms < 20 ||
+      kilograms > 200 ||
       !Number.isFinite(centimeters) ||
       centimeters < 30 ||
-      centimeters > 275 ||
+      centimeters > 200 ||
       !activity ||
       typeof isGym !== "boolean" ||
       !goal ||
@@ -1436,24 +1499,26 @@ function Onboarding({ navigate, editMode = false }) {
     return () => window.clearTimeout(timer)
   }, [notice])
 
+  const onboardingProfile = {
+    age,
+
+    gender,
+
+    status,
+
+    weight,
+
+    height,
+
+    activity,
+
+    isGym,
+
+    goal,
+  }
+
   const validateStep = (stepIndex) =>
-    validateOnboardingStep(stepIndex, {
-      age,
-
-      gender,
-
-      status,
-
-      weight,
-
-      height,
-
-      activity,
-
-      isGym,
-
-      goal,
-    })
+    validateOnboardingStep(stepIndex, onboardingProfile)
 
   const formStarted = hasOnboardingInput({
     age,
@@ -1504,15 +1569,15 @@ function Onboarding({ navigate, editMode = false }) {
 
     if (
       !Number.isFinite(kilograms) ||
-      kilograms < 1 ||
-      kilograms > 500 ||
+      kilograms < 20 ||
+      kilograms > 200 ||
       !Number.isFinite(centimeters) ||
       centimeters < 30 ||
-      centimeters > 275
+      centimeters > 200
     ) {
       setStep(1)
 
-      setNotice("Periksa kembali berat dan tinggi badanmu.")
+      setNotice("Masukkan berat 20–200 kg dan tinggi 30–200 cm.")
 
       return
     }
@@ -1541,22 +1606,24 @@ function Onboarding({ navigate, editMode = false }) {
           pregnancy_status: gender === "Wanita" ? status : null,
 
           weight_kg: kilograms,
-
           height_cm: centimeters,
-
           activity,
-
-          is_gym: isGym,
-
           goal,
+          is_gym: isGym,
         }),
       })
 
       navigate(
         editMode ? "/profile" : "/dashboard",
-        editMode
-          ? { replace: true, state: { notice: "Data berhasil diubah." } }
-          : { replace: true },
+
+        {
+          replace: true,
+          state: {
+            notice: editMode
+              ? "Data berhasil diubah."
+              : "Data onboarding berhasil disimpan.",
+          },
+        },
       )
     } catch (error) {
       setNotice(error.message)
@@ -1567,31 +1634,41 @@ function Onboarding({ navigate, editMode = false }) {
     }
   }
 
-  const continueStep = () => {
-    const error = validateStep(step)
-
-    if (error) {
-      setNotice(error)
-
-      return
+  const goToStep = (nextStep) => {
+    if (nextStep > step) {
+      const invalid = firstInvalidOnboardingStep(nextStep, onboardingProfile)
+      if (invalid) {
+        setStep(invalid.step)
+        setNotice(invalid.error)
+        return
+      }
     }
-
     setNotice("")
-
-    setStep((current) => Math.min(3, current + 1))
+    setStep(nextStep)
   }
+
+  const continueStep = () => goToStep(Math.min(3, step + 1))
 
   const onboardingValues = [
     fullName,
+
     age,
+
     gender,
+
     status,
+
     weight,
+
     height,
+
     activity,
+
     isGym,
+
     goal,
   ]
+
   const hasUnsavedChanges =
     editMode &&
     profileLoaded &&
@@ -1621,12 +1698,15 @@ function Onboarding({ navigate, editMode = false }) {
                   user?.user_metadata?.full_name ||
                   user?.email?.split("@")[0] ||
                   "Profil Nutrily",
+
                 email: user?.email || "",
-                avatar: user?.user_metadata?.avatar_url || "",
+
+                avatar: getProfileAvatarUrl(user),
               }}
-              onProfile={() => navigate("/profile")}
+              onEditProfile={() => navigate("/profile/account")}
               onSignOut={async () => {
                 await supabase?.auth.signOut()
+
                 navigate("/")
               }}
             />
@@ -1662,11 +1742,7 @@ function Onboarding({ navigate, editMode = false }) {
                       ? "bg-white shadow-sm ring-1 ring-sky-100"
                       : "hover:bg-white",
                   )}
-                  onClick={() => {
-                    setNotice("")
-
-                    setStep(index)
-                  }}
+                  onClick={() => goToStep(index)}
                   type="button"
                 >
                   <span
@@ -1736,11 +1812,7 @@ function Onboarding({ navigate, editMode = false }) {
             <nav aria-label="Langkah pengisian profil">
               <BasicSteps
                 currentStep={step}
-                onStepChange={(nextStep) => {
-                  setNotice("")
-
-                  setStep(nextStep)
-                }}
+                onStepChange={goToStep}
                 steps={steps}
               />
             </nav>
@@ -1857,8 +1929,8 @@ function Onboarding({ navigate, editMode = false }) {
               <div className="mt-7 grid gap-4 sm:grid-cols-2">
                 <Input
                   label="Berat badan (kg)"
-                  max={500}
-                  min={1}
+                  max={200}
+                  min={20}
                   onChange={setWeight}
                   placeholder="Contoh: 68"
                   step={0.1}
@@ -1867,7 +1939,7 @@ function Onboarding({ navigate, editMode = false }) {
                 />
                 <Input
                   label="Tinggi badan (cm)"
-                  max={275}
+                  max={200}
                   min={30}
                   onChange={setHeight}
                   placeholder="Contoh: 172"
@@ -1879,6 +1951,7 @@ function Onboarding({ navigate, editMode = false }) {
               <div
                 className={cn(
                   "mt-6 rounded-2xl border border-sky-500 p-4 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-600 hover:shadow-xl sm:p-5",
+
                   profileBlue,
                 )}
               >
@@ -1999,6 +2072,7 @@ function Onboarding({ navigate, editMode = false }) {
               <div
                 className={cn(
                   "mt-6 rounded-2xl border border-sky-500 p-4 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition duration-300 hover:-translate-y-0.5 hover:border-sky-600 hover:shadow-xl sm:flex sm:items-center sm:justify-between sm:p-5",
+
                   profileBlue,
                 )}
               >
@@ -2031,6 +2105,7 @@ function Onboarding({ navigate, editMode = false }) {
             <Button
               className={cn(
                 "min-w-36 px-4 shadow-[0_10px_24px_-12px_rgba(2,132,199,.8)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-200 sm:px-5",
+
                 profileBlue,
               )}
               disabled={saving || (editMode && !profileLoaded)}
@@ -2065,27 +2140,11 @@ function Onboarding({ navigate, editMode = false }) {
       </div>
       {notice && (
         <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <div
-            aria-atomic="true"
-            aria-live="assertive"
-            className="onboarding-toast pointer-events-auto flex items-start gap-3 rounded-2xl border border-rose-200/90 bg-white/95 p-3.5 text-sm text-slate-700 shadow-[0_18px_48px_-20px_rgba(127,29,29,.28)] backdrop-blur-xl sm:p-4"
-            role="alert"
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600">
-              <CircleAlert aria-hidden="true" className="size-5" />
-            </span>
-            <p className="min-w-0 flex-1 pt-1 text-[13px] font-medium leading-5 sm:text-sm">
-              {notice}
-            </p>
-            <button
-              aria-label="Tutup notifikasi"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
-              onClick={() => setNotice("")}
-              type="button"
-            >
-              <X aria-hidden="true" className="size-4" />
-            </button>
-          </div>
+          <NoticeAlert
+            className="onboarding-toast pointer-events-auto"
+            message={notice}
+            onClose={() => setNotice("")}
+          />
         </div>
       )}
       {confirmUpdate && (
@@ -2147,10 +2206,9 @@ function ProfilePage({ navigate }) {
   const { user } = useAuth()
 
   const location = useLocation()
+  const [showProfilePreview, setShowProfilePreview] = useState(false)
 
-  const [avatarUrl, setAvatarUrl] = useState(
-    user?.user_metadata?.avatar_url || "",
-  )
+  const avatarUrl = getProfileAvatarUrl(user)
 
   const [form, setForm] = useState({
     full_name: user?.user_metadata?.full_name || "",
@@ -2191,6 +2249,7 @@ function ProfilePage({ navigate }) {
 
     const timer = window.setTimeout(() => {
       setNotice("")
+
       if (location.state?.notice)
         navigate("/profile", { replace: true, state: null })
     }, 4500)
@@ -2236,6 +2295,7 @@ function ProfilePage({ navigate }) {
       .finally(() => {
         if (active) {
           setLoading(false)
+
           setProfileLoaded(true)
         }
       })
@@ -2266,9 +2326,7 @@ function ProfilePage({ navigate }) {
       <div className="mx-auto max-w-7xl px-4 py-8 pb-12 sm:px-6 sm:py-10 lg:px-8">
         {loadError ? (
           <section className="rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-rose-700" role="alert">
-              {loadError}
-            </p>
+            <NoticeAlert message={loadError} />
             <Button
               className="mt-4"
               onClick={() => setReload((value) => value + 1)}
@@ -2284,6 +2342,7 @@ function ProfilePage({ navigate }) {
               email={user?.email || ""}
               name={loading ? "Memuat akun…" : form.full_name}
               onEdit={() => navigate("/profile/account")}
+              onView={() => setShowProfilePreview(true)}
             />
 
             <section className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_20px_60px_-36px_rgba(15,23,42,.3)] sm:p-8">
@@ -2306,32 +2365,40 @@ function ProfilePage({ navigate }) {
               {loading ? (
                 <p className="py-6 text-sm text-slate-500">Memuat data…</p>
               ) : loadError ? (
-                <p className="py-6 text-sm text-rose-700" role="alert">
-                  {loadError}
-                </p>
+                <NoticeAlert className="mt-4" message={loadError} />
               ) : (
                 <dl className="mt-5 grid gap-3 sm:grid-cols-2">
                   {[
                     ["Usia", form.age ? `${form.age} tahun` : "—"],
+
                     ["Jenis kelamin", form.gender || "—"],
+
                     [
                       "Berat badan",
+
                       form.weight_kg ? `${form.weight_kg} kg` : "—",
                     ],
+
                     [
                       "Tinggi badan",
+
                       form.height_cm ? `${form.height_cm} cm` : "—",
                     ],
+
                     ["Aktivitas", form.activity || "—"],
+
                     [
                       "Latihan gym",
+
                       form.is_gym
                         ? "Rutin"
                         : form.is_gym === false
                           ? "Tidak rutin"
                           : "—",
                     ],
+
                     ["Kehamilan/menyusui", form.pregnancy_status || "—"],
+
                     ["Target", form.goal || "—"],
                   ].map(([label, value]) => (
                     <div
@@ -2354,90 +2421,92 @@ function ProfilePage({ navigate }) {
       </div>
       {notice && (
         <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <div
-            aria-atomic="true"
-            aria-live="polite"
-            className={cn(
-              "onboarding-toast pointer-events-auto flex items-start gap-3 rounded-2xl border bg-white/95 p-3.5 text-sm text-slate-700 shadow-[0_18px_48px_-20px_rgba(15,23,42,.28)] backdrop-blur-xl sm:p-4",
-              notice === "Data berhasil diubah." ||
-                notice === "Foto profil berhasil diperbarui."
-                ? "border-emerald-200/90"
-                : "border-rose-200/90",
-            )}
-            role={notice === "Data berhasil diubah." ? "status" : "alert"}
-          >
-            <span
-              className={cn(
-                "grid size-9 shrink-0 place-items-center rounded-xl",
-                notice === "Data berhasil diubah." ||
-                  notice === "Foto profil berhasil diperbarui."
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-rose-50 text-rose-600",
-              )}
-            >
-              {notice === "Data berhasil diubah." ||
-              notice === "Foto profil berhasil diperbarui." ? (
-                <Check aria-hidden="true" className="size-5" />
-              ) : (
-                <CircleAlert aria-hidden="true" className="size-5" />
-              )}
-            </span>
-            <p className="min-w-0 flex-1 pt-1 text-[13px] font-medium leading-5 sm:text-sm">
-              {notice}
-            </p>
-            <button
-              aria-label="Tutup notifikasi"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
-              onClick={() => {
-                setNotice("")
-                if (location.state?.notice)
-                  navigate("/profile", { replace: true, state: null })
-              }}
-              type="button"
-            >
-              <X aria-hidden="true" className="size-4" />
-            </button>
-          </div>
+          <NoticeAlert
+            className="onboarding-toast pointer-events-auto"
+            message={notice}
+            onClose={() => {
+              setNotice("")
+              if (location.state?.notice)
+                navigate("/profile", { replace: true, state: null })
+            }}
+          />
         </div>
+      )}
+      {showProfilePreview && (
+        <ProfilePreviewDialog
+          avatar={avatarUrl}
+          name={form.full_name}
+          onClose={() => setShowProfilePreview(false)}
+        />
       )}
     </main>
   )
 }
 
 function ProfileAccountPage({ navigate }) {
-  const { user } = useAuth()
+  const { user, updateUserMetadata } = useAuth()
   const avatarInput = useRef(null)
+  const [cropFile, setCropFile] = useState(null)
+  const [pendingAvatarBlob, setPendingAvatarBlob] = useState(null)
+  const [pendingAvatarPreview, setPendingAvatarPreview] = useState("")
+  const [showProfilePreview, setShowProfilePreview] = useState(false)
+  const originalAvatarUrl = getOriginalGoogleAvatarUrl(user)
   const [name, setName] = useState(user?.user_metadata?.full_name || "")
-  const [avatarUrl, setAvatarUrl] = useState(
-    user?.user_metadata?.avatar_url || "",
-  )
+  const avatarUrl = getProfileAvatarUrl(user)
   const [loading, setLoading] = useState(true)
+
   const [profileLoaded, setProfileLoaded] = useState(false)
+
   const [hasProfile, setHasProfile] = useState(false)
+
   const [initialName, setInitialName] = useState(
     user?.user_metadata?.full_name || "",
   )
+
   const [saving, setSaving] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
   const [notice, setNotice] = useState("")
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
+
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
+  const [deleteAvatarPending, setDeleteAvatarPending] = useState(false)
+
+  const customAvatar = hasCustomAvatar(avatarUrl, originalAvatarUrl)
+  const nameHasChanged = name.trim() !== initialName.trim()
+  const hasUnsavedChanges =
+    nameHasChanged || Boolean(pendingAvatarBlob) || deleteAvatarPending
+
+  useEffect(
+    () => () => {
+      if (pendingAvatarPreview) URL.revokeObjectURL(pendingAvatarPreview)
+    },
+    [pendingAvatarPreview],
+  )
 
   useEffect(() => {
     let active = true
+
     api("/profile")
+
       .then((profile) => {
         if (active) {
           setHasProfile(Boolean(profile.user_id))
+
           setProfileLoaded(true)
+
           const loadedName =
             profile.full_name || user?.user_metadata?.full_name || ""
+
           setName(loadedName)
+
           setInitialName(loadedName)
         }
       })
+
       .catch((error) => active && setNotice(error.message))
+
       .finally(() => active && setLoading(false))
+
     return () => {
       active = false
     }
@@ -2445,11 +2514,13 @@ function ProfileAccountPage({ navigate }) {
 
   const saveName = (event) => {
     event.preventDefault()
+
     const fullName = name.trim()
-    if (!fullName || fullName.length > 120) {
+    if (nameHasChanged && (!fullName || fullName.length > 120)) {
       setNotice("Nama wajib diisi dan maksimal 120 karakter.")
       return
     }
+
     if (hasUnsavedChanges) setShowSaveConfirmation(true)
   }
 
@@ -2458,69 +2529,56 @@ function ProfileAccountPage({ navigate }) {
     setSaving(true)
     setNotice("")
     try {
-      const query = supabase.from("profiles")
-      const { error } = hasProfile
-        ? await query.update({ full_name: fullName }).eq("user_id", user.id)
-        : await query.insert({ user_id: user.id, full_name: fullName })
-      if (error) throw error
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: fullName },
-      })
-      if (authError) throw authError
-      setHasProfile(true)
-      setName(fullName)
-      setInitialName(fullName)
-      navigate("/profile", {
-        replace: true,
-        state: { notice: "Data berhasil diubah." },
-      })
+      const metadata = {}
+      if (nameHasChanged) {
+        const query = supabase.from("profiles")
+        const { error } = hasProfile
+          ? await query.update({ full_name: fullName }).eq("user_id", user.id)
+          : await query.insert({ user_id: user.id, full_name: fullName })
+        if (error) throw error
+        metadata.full_name = fullName
+      }
+      if (pendingAvatarBlob) {
+        const body = new FormData()
+        body.append("avatar", pendingAvatarBlob, "avatar.jpg")
+        const result = await api("/profile/avatar", { method: "POST", body })
+        metadata.avatar_url = `${result.avatar_url}?t=${Date.now()}`
+        metadata.google_avatar_url = originalAvatarUrl
+      } else if (deleteAvatarPending) {
+        await api("/profile/avatar", { method: "DELETE" })
+        metadata.avatar_url = originalAvatarUrl
+      }
+      if (Object.keys(metadata).length) await updateUserMetadata(metadata)
+      const notice = deleteAvatarPending
+        ? nameHasChanged
+          ? "Profil diperbarui dan foto Google dipulihkan."
+          : "Foto profil berhasil dihapus."
+        : pendingAvatarBlob && !nameHasChanged
+          ? "Foto profil berhasil diperbarui."
+          : "Data berhasil diubah."
+      navigate("/profile", { replace: true, state: { notice } })
     } catch (error) {
       setNotice(error.message || "Nama profil gagal diperbarui.")
-      setShowSaveConfirmation(false)
     } finally {
       setSaving(false)
+      setShowSaveConfirmation(false)
     }
   }
 
-  const hasUnsavedChanges = name.trim() !== initialName.trim()
-
   const uploadAvatar = async (event) => {
     const file = event.target.files?.[0]
+
     event.target.value = ""
+
     if (!file) return
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setNotice("Pilih foto berformat JPG, PNG, atau WebP.")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setNotice("Ukuran foto maksimal 5 MB.")
-      return
-    }
-    setUploadingAvatar(true)
+
+    if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(file.type))
+      return setNotice("Gunakan foto JPG, PNG, atau WebP.")
+    if (file.size > 5 * 1024 * 1024)
+      return setNotice("Ukuran foto maksimal 5 MB.")
+
     setNotice("")
-    try {
-      const path = `${user.id}/avatar`
-      const { error } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, {
-          cacheControl: "3600",
-          contentType: file.type,
-          upsert: true,
-        })
-      if (error) throw error
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path)
-      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { avatar_url: nextAvatarUrl },
-      })
-      if (authError) throw authError
-      setAvatarUrl(nextAvatarUrl)
-      setNotice("Foto profil berhasil diperbarui.")
-    } catch (error) {
-      setNotice(error.message || "Foto profil gagal diunggah.")
-    } finally {
-      setUploadingAvatar(false)
-    }
+    setCropFile(file)
   }
 
   return (
@@ -2529,7 +2587,7 @@ function ProfileAccountPage({ navigate }) {
         <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between px-4 py-3.5 sm:min-h-[86px] sm:px-6 lg:px-8">
           <Brand />
           <HeaderBackButton
-            disabled={saving || uploadingAvatar}
+            disabled={saving}
             label="Kembali ke profil"
             onClick={() =>
               hasUnsavedChanges
@@ -2553,19 +2611,24 @@ function ProfileAccountPage({ navigate }) {
             onSubmit={saveName}
           >
             <div className="flex flex-col items-center gap-4">
-              <span className="grid size-36 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-violet-400 p-1 text-3xl font-bold text-sky-700 sm:size-40">
-                {avatarUrl ? (
+              <button
+                aria-label="Lihat profil"
+                className="grid size-36 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 via-blue-500 to-violet-400 p-1 text-3xl font-bold text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:size-40"
+                onClick={() => setShowProfilePreview(true)}
+                type="button"
+              >
+                {pendingAvatarPreview || avatarUrl ? (
                   <img
                     alt="Foto profil"
                     className="size-full rounded-full bg-white object-cover"
-                    src={avatarUrl}
+                    src={pendingAvatarPreview || avatarUrl}
                   />
                 ) : (
                   <span className="grid size-full place-items-center rounded-full bg-white">
                     {(name || user?.email || "N").slice(0, 1).toUpperCase()}
                   </span>
                 )}
-              </span>
+              </button>
               <input
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
@@ -2575,21 +2638,25 @@ function ProfileAccountPage({ navigate }) {
               />
               <div className="flex items-center gap-3">
                 <button
-                  aria-label={uploadingAvatar ? "Mengunggah foto" : "Edit foto"}
-                  className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={uploadingAvatar}
+                  aria-label="Edit foto"
+                  className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm disabled:opacity-50"
+                  disabled={saving}
                   onClick={() => avatarInput.current?.click()}
                   type="button"
                 >
                   <Pencil aria-hidden="true" className="size-4" />
                 </button>
-                {avatarUrl && (
+                {customAvatar && (
                   <button
                     aria-label="Hapus foto profil"
-                    className="grid size-11 place-items-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
-                    onClick={() =>
-                      setNotice("Aksi hapus foto akan tersedia nanti.")
-                    }
+                    className="grid size-11 place-items-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-sm disabled:opacity-50"
+                    disabled={saving}
+                    onClick={() => {
+                      setPendingAvatarBlob(null)
+                      setPendingAvatarPreview("")
+                      setDeleteAvatarPending(true)
+                      setShowSaveConfirmation(true)
+                    }}
                     type="button"
                   >
                     <Trash2 aria-hidden="true" className="size-4" />
@@ -2600,7 +2667,7 @@ function ProfileAccountPage({ navigate }) {
             <div className="space-y-5">
               <Input
                 label="Nama lengkap"
-                max={120}
+                maxLength={120}
                 onChange={setName}
                 placeholder="Nama lengkap"
                 value={name}
@@ -2630,11 +2697,7 @@ function ProfileAccountPage({ navigate }) {
               </Button>
             </div>
           </form>
-          {notice && (
-            <p className="mt-4 text-sm text-slate-600" role="status">
-              {notice}
-            </p>
-          )}
+          {notice && <NoticeAlert className="mt-4" message={notice} />}
         </section>
       </div>
       {showUnsavedChanges && (
@@ -2664,13 +2727,22 @@ function ProfileAccountPage({ navigate }) {
               Simpan perubahan?
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Nama profil akan diperbarui.
+              {deleteAvatarPending
+                ? nameHasChanged
+                  ? "Nama akan diperbarui, foto kustom dihapus, dan foto Google dipulihkan."
+                  : "Foto kustom akan dihapus dan foto Google dipulihkan."
+                : pendingAvatarBlob
+                  ? "Perubahan nama dan foto profil akan disimpan."
+                  : "Nama profil akan diperbarui."}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 className="h-10 rounded-lg px-4 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                 disabled={saving}
-                onClick={() => setShowSaveConfirmation(false)}
+                onClick={() => {
+                  setShowSaveConfirmation(false)
+                  setDeleteAvatarPending(false)
+                }}
                 type="button"
               >
                 Batal
@@ -2686,6 +2758,26 @@ function ProfileAccountPage({ navigate }) {
             </div>
           </section>
         </div>
+      )}
+      {cropFile && (
+        <AvatarCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onCrop={(blob) => {
+            if (pendingAvatarPreview) URL.revokeObjectURL(pendingAvatarPreview)
+            setPendingAvatarBlob(blob)
+            setPendingAvatarPreview(URL.createObjectURL(blob))
+            setCropFile(null)
+            setDeleteAvatarPending(false)
+          }}
+        />
+      )}
+      {showProfilePreview && (
+        <ProfilePreviewDialog
+          avatar={pendingAvatarPreview || avatarUrl}
+          name={name}
+          onClose={() => setShowProfilePreview(false)}
+        />
       )}
     </main>
   )
@@ -3051,15 +3143,23 @@ function AppShell({
 
       frame = requestAnimationFrame(() => {
         const lenis = window.__lenis
+
         const root = document.documentElement
+
         const scrollHeight = Math.max(
           root.scrollHeight,
+
           document.body.scrollHeight,
         )
+
         const viewportHeight = root.clientHeight
+
         const maxScroll = Math.max(0, scrollHeight - viewportHeight)
+
         const scrollTop = Math.max(window.scrollY, lenis?.animatedScroll || 0)
+
         const atBottom = scrollTop + viewportHeight >= scrollHeight - 2
+
         const progress = atBottom
           ? 1
           : maxScroll > 0
@@ -3087,6 +3187,7 @@ function AppShell({
     const observer = new ResizeObserver(updateProgress)
 
     observer.observe(document.documentElement)
+
     observer.observe(document.body)
 
     return () => {
@@ -3155,7 +3256,6 @@ function AppShell({
             >
               <Menu className="size-5" strokeWidth={2.2} />
             </button>
-            {sidebarExpanded && <ThemeToggle className="shrink-0" size="sm" />}
           </div>
           <nav className="mt-8 space-y-1.5">
             {items.map(([screen, label, Icon]) => (
@@ -3260,13 +3360,13 @@ function AppShell({
 
                     email: user?.email || "",
 
-                    avatar: user?.user_metadata?.avatar_url || "",
+                    avatar: getProfileAvatarUrl(user),
                   }}
-                  onProfile={() => navigate("/profile")}
+                  onEditProfile={() => navigate("/profile/account")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
-                    navigate("/login")
+                    navigate("/")
                   }}
                 />
               </>
@@ -3301,13 +3401,13 @@ function AppShell({
 
                     email: user?.email || "",
 
-                    avatar: user?.user_metadata?.avatar_url || "",
+                    avatar: getProfileAvatarUrl(user),
                   }}
-                  onProfile={() => navigate("/profile")}
+                  onEditProfile={() => navigate("/profile/account")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
-                    navigate("/login")
+                    navigate("/")
                   }}
                 />
               </>
@@ -3356,9 +3456,18 @@ function AppShell({
 }
 
 function Dashboard({ navigate }) {
+  const location = useLocation()
+  const [dashboardNotice, setDashboardNotice] = useState(
+    location.state?.notice || "",
+  )
   const [summary, setSummary] = useState(null)
-
   const [dailyConsulting, setDailyConsulting] = useState(false)
+
+  useEffect(() => {
+    if (!location.state?.notice) return
+
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
 
   const [loadError, setLoadError] = useState("")
 
@@ -3516,7 +3625,9 @@ function Dashboard({ navigate }) {
     const conversationId = newConversationId()
 
     const mealLines = (summary.meals || [])
+
       .slice(0, 10)
+
       .map(
         (meal) =>
           `- ${String(meal.name || "Makanan").slice(0, 80)} (${meal.serving_size || "1 sajian"}): ${meal.calories ?? "?"} kkal, P ${meal.protein_g ?? "?"}g, K ${meal.carbs_g ?? "?"}g, L ${meal.fat_g ?? "?"}g, gula ${meal.sugar_g ?? "?"}g, Na ${meal.sodium_mg ?? "?"}mg`,
@@ -3524,10 +3635,15 @@ function Dashboard({ navigate }) {
 
     const totals = [
       "calories",
+
       "protein_g",
+
       "carbs_g",
+
       "fat_g",
+
       "sugar_g",
+
       "sodium_mg",
     ]
 
@@ -3537,10 +3653,15 @@ function Dashboard({ navigate }) {
 
     const targetValues = [
       "calories",
+
       "protein_g",
+
       "carbs_g",
+
       "fat_g",
+
       "sugar_g",
+
       "sodium_mg",
     ]
 
@@ -3586,6 +3707,9 @@ function Dashboard({ navigate }) {
   return (
     <AppShell active="dashboard" navigate={navigate}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
+        {dashboardNotice && (
+          <NoticeAlert className="mb-5" message={dashboardNotice} />
+        )}
         <div className="mb-7 md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold text-sky-600">
@@ -3743,14 +3867,7 @@ function Dashboard({ navigate }) {
 
         <CalorieChart targets={targets} />
 
-        {loadError && (
-          <p
-            role="alert"
-            className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-          >
-            {loadError}
-          </p>
-        )}
+        {loadError && <NoticeAlert className="mt-4" message={loadError} />}
         <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
           <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
@@ -4148,14 +4265,7 @@ function LegacyScanner({ navigate }) {
           </div>
         </div>
 
-        {notice && (
-          <p
-            aria-live="polite"
-            className="mt-5 rounded-xl bg-sky-50 p-3 text-sm text-sky-800"
-          >
-            {notice}
-          </p>
-        )}
+        {notice && <NoticeAlert className="mt-5" message={notice} />}
         <div className="mt-7 grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
           <section className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
             <div className="relative flex min-h-[430px] items-center justify-center overflow-hidden rounded-2xl bg-slate-900">
@@ -4495,14 +4605,7 @@ function LegacyScanner({ navigate }) {
             )}
           </section>
         </div>
-        {notice && (
-          <p
-            aria-live="polite"
-            className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-800"
-          >
-            {notice}
-          </p>
-        )}
+        {notice && <NoticeAlert className="mt-4" message={notice} />}
       </main>
     </AppShell>
   )
@@ -4654,7 +4757,7 @@ function Chat({ navigate, routeConversationId }) {
   const [messages, setMessages] = useState([])
 
   const [conversationId, setConversationId] = useState(
-    () => routeConversationId || requestedConversationId || newConversationId(),
+    () => routeConversationId || requestedConversationId || "",
   )
 
   const [conversations, setConversations] = useState([])
@@ -4666,6 +4769,8 @@ function Chat({ navigate, routeConversationId }) {
   const [sidebarHovered, setSidebarHovered] = useState(false)
 
   const [deletingId, setDeletingId] = useState("")
+
+  const [conversationToDelete, setConversationToDelete] = useState(null)
 
   const imageInput = useRef(null)
 
@@ -4726,9 +4831,15 @@ function Chat({ navigate, routeConversationId }) {
   useEffect(() => {
     if (!routeConversationId && requestedConversationId)
       navigate(`/chat/${requestedConversationId}`, { replace: true })
-    else if (!routeConversationId && conversationId)
+    else if (!routeConversationId && conversationId && messages.length)
       navigate(`/chat/${conversationId}`, { replace: true })
-  }, [conversationId, navigate, requestedConversationId, routeConversationId])
+  }, [
+    conversationId,
+    messages.length,
+    navigate,
+    requestedConversationId,
+    routeConversationId,
+  ])
 
   useEffect(() => {
     const panel = messagesPanel.current
@@ -4747,9 +4858,7 @@ function Chat({ navigate, routeConversationId }) {
   const startNewChat = () => {
     setShowMobileChats(false)
 
-    const id = newConversationId()
-
-    setConversationId(id)
+    setConversationId("")
 
     setMessages([])
 
@@ -4759,12 +4868,10 @@ function Chat({ navigate, routeConversationId }) {
 
     setNotice("")
 
-    navigate(`/chat/${id}`, { replace: true })
+    navigate("/chat", { replace: true })
   }
 
   const deleteConversation = async (id) => {
-    if (!window.confirm("Hapus riwayat percakapan ini?")) return
-
     setDeletingId(id)
 
     setNotice("")
@@ -4779,9 +4886,7 @@ function Chat({ navigate, routeConversationId }) {
       setShowMobileChats(false)
 
       if (conversationId === id) {
-        const nextId = newConversationId()
-
-        setConversationId(nextId)
+        setConversationId("")
 
         setMessages([])
 
@@ -4789,7 +4894,7 @@ function Chat({ navigate, routeConversationId }) {
 
         setImage(null)
 
-        navigate(`/chat/${nextId}`, { replace: true })
+        navigate("/chat", { replace: true })
       }
     } catch (error) {
       setNotice(error.message)
@@ -4835,8 +4940,6 @@ function Chat({ navigate, routeConversationId }) {
 
     const activeConversationId = conversationId || newConversationId()
 
-    setConversationId(activeConversationId)
-
     const userMessage = {
       from: "user",
 
@@ -4850,6 +4953,8 @@ function Chat({ navigate, routeConversationId }) {
     setNotice("")
 
     setMessages((current) => [...current, userMessage])
+
+    setConversationId(activeConversationId)
 
     setMessage("")
 
@@ -5082,7 +5187,7 @@ function Chat({ navigate, routeConversationId }) {
                           aria-label="Hapus percakapan"
                           className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-slate-400 opacity-60 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-rose-500 group-hover/history:opacity-100 disabled:opacity-40"
                           disabled={Boolean(deletingId)}
-                          onClick={() => deleteConversation(item.id)}
+                          onClick={() => setConversationToDelete(item.id)}
                           title="Hapus percakapan"
                           type="button"
                         >
@@ -5279,17 +5384,29 @@ function Chat({ navigate, routeConversationId }) {
                 sending={sending}
               />
               {notice && (
-                <p
-                  aria-live="polite"
-                  className="mx-auto mt-2 max-w-3xl rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
-                >
-                  {notice}
-                </p>
+                <NoticeAlert
+                  className="mx-auto mt-2 max-w-3xl"
+                  message={notice}
+                />
               )}
             </div>
           </section>
         </div>
       </main>
+      {conversationToDelete && (
+        <ConfirmDialog
+          title="Hapus riwayat percakapan?"
+          description="Riwayat percakapan ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
+          confirmLabel="Hapus"
+          destructive
+          onCancel={() => setConversationToDelete(null)}
+          onConfirm={() => {
+            const id = conversationToDelete
+            setConversationToDelete(null)
+            deleteConversation(id)
+          }}
+        />
+      )}
     </AppShell>
   )
 }
@@ -5321,10 +5438,15 @@ function MealHistory({ navigate }) {
 
   useEffect(() => {
     let active = true
+
     api("/meals", { method: "GET" })
+
       .then((rows) => active && setMeals(rows))
+
       .catch((error) => active && setNotice(error.message))
+
       .finally(() => active && setLoading(false))
+
     return () => {
       active = false
     }
@@ -5332,33 +5454,56 @@ function MealHistory({ navigate }) {
 
   useEffect(() => {
     if (!sessionDialog) return
+
     const scrollY = window.__lenis?.scroll ?? window.scrollY
+
     const previousBodyStyles = {
       overflow: document.body.style.overflow,
+
       position: document.body.style.position,
+
       top: document.body.style.top,
+
       left: document.body.style.left,
+
       right: document.body.style.right,
+
       width: document.body.style.width,
     }
+
     const previousDocumentOverflow = document.documentElement.style.overflow
+
     window.__lenis?.stop()
+
     document.body.style.overflow = "hidden"
+
     document.body.style.position = "fixed"
+
     document.body.style.top = `-${scrollY}px`
+
     document.body.style.left = "0"
+
     document.body.style.right = "0"
+
     document.body.style.width = "100%"
+
     document.documentElement.style.overflow = "hidden"
+
     const closeOnEscape = (event) => {
       if (event.key === "Escape") setSessionDialog(null)
     }
+
     window.addEventListener("keydown", closeOnEscape)
+
     return () => {
       window.removeEventListener("keydown", closeOnEscape)
+
       Object.assign(document.body.style, previousBodyStyles)
+
       document.documentElement.style.overflow = previousDocumentOverflow
+
       window.scrollTo(0, scrollY)
+
       window.__lenis?.start()
     }
   }, [sessionDialog])
@@ -5368,36 +5513,52 @@ function MealHistory({ navigate }) {
   const sessions = Object.values(
     meals.reduce((groups, meal) => {
       const id = meal.scan_session_id || `single-${meal.id}`
+
       const session = groups[id] || {
         id,
+
         meals: [],
+
         created_at: meal.created_at,
+
         calories: 0,
+
         scan_mode: meal.scan_mode || "label",
+
         scan_session_id: meal.scan_session_id || "",
+
         scan_session_name: meal.scan_session_name || "",
       }
 
       session.meals.push(meal)
+
       session.created_at =
         new Date(meal.created_at) > new Date(session.created_at)
           ? meal.created_at
           : session.created_at
+
       session.calories += Number(meal.calories) || 0
+
       groups[id] = session
+
       return groups
     }, {}),
   )
 
   const sessionNumbers = new Map()
+
   const sessionCounts = { receipt: 0, label: 0 }
   ;[...sessions]
+
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
     .forEach((session) => {
       sessionCounts[session.scan_mode] =
         (sessionCounts[session.scan_mode] || 0) + 1
+
       sessionNumbers.set(session.id, sessionCounts[session.scan_mode])
     })
+
   sessions.forEach((session) => {
     session.session_name =
       session.scan_session_name ||
@@ -5408,19 +5569,27 @@ function MealHistory({ navigate }) {
 
   const filteredSessions = sessions.filter((session) => {
     const searchText = query.trim().toLowerCase()
+
     const sessionName = session.session_name
+
     const created = new Date(session.created_at)
+
     const sessionDay = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}-${String(created.getDate()).padStart(2, "0")}`
+
     const matchesFilters =
       (scanTypeFilter === "all" || session.scan_mode === scanTypeFilter) &&
       (!dayFilter || sessionDay === dayFilter)
+
     const matchesSearch =
       sessionName.toLowerCase().includes(searchText) ||
       session.meals.some((meal) =>
         `${meal.name} ${meal.serving_size || ""}`
+
           .toLowerCase()
+
           .includes(searchText),
       )
+
     return matchesFilters && matchesSearch
   })
 
@@ -5428,11 +5597,13 @@ function MealHistory({ navigate }) {
 
   useEffect(
     () => setCurrentPage((page) => Math.min(page, pageCount)),
+
     [pageCount],
   )
 
   const currentSessions = filteredSessions.slice(
     (currentPage - 1) * pageSize,
+
     currentPage * pageSize,
   )
 
@@ -5469,24 +5640,33 @@ function MealHistory({ navigate }) {
 
   const startRenaming = () => {
     if (!selectedSession) return
+
     setSessionNameDraft(selectedSession.session_name)
+
     setSessionDialog({ type: "rename", ids: [selectedSession.id] })
   }
 
   const saveSessionName = async () => {
     const name = sessionNameDraft.trim()
+
     if (!name || sessionDialog?.type !== "rename" || !selectedSession) return
+
     setActionBusy(true)
+
     setNotice("")
+
     try {
       const session = sessions.find(({ id }) => id === sessionDialog.ids[0])
+
       const query = session?.scan_session_id
         ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
         : `meal_id=${encodeURIComponent(session?.meals[0]?.id)}`
+
       await api(`/meals?${query}`, {
         method: "PATCH",
         body: JSON.stringify({ scan_session_name: name }),
       })
+
       setMeals((previous) =>
         previous.map((meal) =>
           selectedSession.scan_session_id
@@ -5498,7 +5678,10 @@ function MealHistory({ navigate }) {
               : meal,
         ),
       )
+
       setSessionDialog(null)
+
+      setNotice("Nama sesi berhasil diubah.")
     } catch (error) {
       setNotice(error.message)
     } finally {
@@ -5508,36 +5691,50 @@ function MealHistory({ navigate }) {
 
   const deleteSelectedSessions = () => {
     if (!selectedSessions.length) return
+
     setSessionDialog({ type: "delete", ids: selectedSessions })
   }
 
   const confirmDeleteSessions = async () => {
     const selected = new Set(sessionDialog?.ids || [])
+
     if (!selected.size) return
 
     setActionBusy(true)
+
     setNotice("")
+
     try {
       for (const sessionId of selected) {
         const session = sessions.find(({ id }) => id === sessionId)
+
         const query = session?.scan_session_id
           ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
           : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
+
         await api(`/meals?${query}`, { method: "DELETE" })
       }
+
       setMeals((previous) =>
         previous.filter(
           (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
         ),
       )
+
       setSelectedSessions([])
+
       setSessionDialog(null)
+
       setExpandedSessions((previous) =>
         previous.filter((id) => !selected.has(id)),
       )
+
       setCurrentPage(1)
+
+      setNotice(`${selected.size} sesi berhasil dihapus.`)
     } catch (error) {
       setNotice(error.message)
+
       api("/meals", { method: "GET" })
         .then(setMeals)
         .catch((refreshError) => setNotice(refreshError.message))
@@ -5566,15 +5763,7 @@ function MealHistory({ navigate }) {
             <Plus className="size-4" /> Catat makanan
           </Button>
         </div>
-        {notice && (
-          <p
-            aria-live="polite"
-            className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"
-            role="alert"
-          >
-            {notice}
-          </p>
-        )}
+        {notice && <NoticeAlert className="mb-4" message={notice} />}
         <section
           aria-busy={loading || actionBusy}
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl"
@@ -5589,6 +5778,7 @@ function MealHistory({ navigate }) {
                   {filteredSessions.length} sesi ·{" "}
                   {filteredSessions.reduce(
                     (total, session) => total + session.meals.length,
+
                     0,
                   )}{" "}
                   makanan
@@ -5627,7 +5817,9 @@ function MealHistory({ navigate }) {
                 className="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 font-poppins text-sm font-medium text-slate-800 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 sm:px-3 xl:w-auto"
                 onChange={(event) => {
                   setScanTypeFilter(event.target.value)
+
                   setCurrentPage(1)
+
                   setSelectedSessions([])
                 }}
                 value={scanTypeFilter}
@@ -5641,7 +5833,9 @@ function MealHistory({ navigate }) {
                 className="h-10 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 font-poppins text-sm font-medium text-slate-800 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 sm:px-3 xl:w-auto"
                 onChange={(event) => {
                   setDayFilter(event.target.value)
+
                   setCurrentPage(1)
+
                   setSelectedSessions([])
                 }}
                 type="date"
@@ -5657,7 +5851,9 @@ function MealHistory({ navigate }) {
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 font-poppins text-sm font-medium text-slate-800 outline-none transition placeholder:font-poppins placeholder:font-medium placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                   onChange={(event) => {
                     setQuery(event.target.value)
+
                     setCurrentPage(1)
+
                     setSelectedSessions([])
                   }}
                   placeholder="Cari sesi atau makanan..."
@@ -5715,8 +5911,17 @@ function MealHistory({ navigate }) {
                           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">
                             <ScanLine aria-hidden="true" className="size-4" />
                           </span>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-800">
+                          <button
+                            className="min-w-0 text-left"
+                            onClick={() =>
+                              session.scan_session_id &&
+                              navigate(
+                                `/scanner/summary/${session.scan_session_id}`,
+                              )
+                            }
+                            type="button"
+                          >
+                            <p className="font-semibold text-slate-800 hover:text-sky-700">
                               {session.session_name}
                             </p>
                             <p className="mt-0.5 text-xs text-slate-500">
@@ -5724,12 +5929,13 @@ function MealHistory({ navigate }) {
                                 ? "Scan struk"
                                 : "Scan label"}
                             </p>
-                          </div>
+                          </button>
                         </div>
                       </td>
                       <td className="whitespace-nowrap p-4 text-slate-600">
                         {new Date(session.created_at).toLocaleString("id-ID", {
                           dateStyle: "medium",
+
                           timeStyle: "short",
                         })}
                       </td>
@@ -5792,29 +5998,44 @@ function MealHistory({ navigate }) {
                                   <div className="grid grid-cols-3 gap-1.5 pl-11 sm:min-w-[270px] sm:pl-0">
                                     {[
                                       [meal.calories, "kcal", "bg-sky-500"],
+
                                       [
                                         `${meal.protein_g}g`,
+
                                         "protein",
+
                                         "bg-violet-500",
                                       ],
+
                                       [
                                         `${meal.carbs_g}g`,
+
                                         "karbo",
+
                                         "bg-emerald-500",
                                       ],
+
                                       [
                                         `${meal.fat_g}g`,
+
                                         "lemak",
+
                                         "bg-amber-400",
                                       ],
+
                                       [
                                         `${meal.sugar_g ?? 0}g`,
+
                                         "gula",
+
                                         "bg-rose-400",
                                       ],
+
                                       [
                                         `${meal.sodium_mg ?? 0}mg`,
+
                                         "natrium",
+
                                         "bg-orange-500",
                                       ],
                                     ].map(([value, label, color]) => (
@@ -5896,60 +6117,62 @@ function MealHistory({ navigate }) {
                     <ScanLine aria-hidden="true" className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-slate-800">
-                          {session.session_name}
-                        </h3>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {session.scan_mode === "receipt"
-                            ? "Scan struk"
-                            : "Scan label"}
-                        </p>
-                      </div>
-                      <time className="text-right text-xs text-slate-500">
-                        {new Date(session.created_at).toLocaleString("id-ID", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </time>
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-sky-50/70 px-3 py-2">
-                        <p className="text-[11px] text-slate-500">
-                          Total kalori
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                          {session.calories.toLocaleString("id-ID")} kkal
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] text-slate-500">Total item</p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                          {session.meals.length} makanan
-                        </p>
-                      </div>
-                    </div>
                     <button
-                      aria-expanded={expandedSessions.includes(session.id)}
-                      className="mt-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
-                      onClick={() => toggleExpanded(session.id)}
+                      className="min-w-0 text-left"
+                      onClick={() =>
+                        session.scan_session_id &&
+                        navigate(`/scanner/summary/${session.scan_session_id}`)
+                      }
                       type="button"
                     >
-                      {expandedSessions.includes(session.id)
-                        ? "Tutup detail"
-                        : "Lihat item"}
-                      <ChevronDown
-                        aria-hidden="true"
-                        className={`size-4 transition-transform ${
-                          expandedSessions.includes(session.id)
-                            ? "rotate-180"
-                            : ""
-                        }`}
-                      />
+                      <h3 className="truncate text-left text-sm font-semibold text-slate-800 hover:text-sky-700">
+                        {session.session_name}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {session.scan_mode === "receipt"
+                          ? "Scan struk"
+                          : "Scan label"}
+                      </p>
                     </button>
                   </div>
+                  <time className="text-right text-xs text-slate-500">
+                    {new Date(session.created_at).toLocaleString("id-ID", {
+                      dateStyle: "medium",
+
+                      timeStyle: "short",
+                    })}
+                  </time>
                 </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-sky-50/70 px-3 py-2">
+                    <p className="text-[11px] text-slate-500">Total kalori</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                      {session.calories.toLocaleString("id-ID")} kkal
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] text-slate-500">Total item</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                      {session.meals.length} makanan
+                    </p>
+                  </div>
+                </div>
+                <button
+                  aria-expanded={expandedSessions.includes(session.id)}
+                  className="mt-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                  onClick={() => toggleExpanded(session.id)}
+                  type="button"
+                >
+                  {expandedSessions.includes(session.id)
+                    ? "Tutup detail"
+                    : "Lihat item"}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`size-4 transition-transform ${
+                      expandedSessions.includes(session.id) ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
                 {expandedSessions.includes(session.id) && (
                   <div className="mt-3 space-y-2 pl-7">
                     {session.meals.map((meal) => (
@@ -5966,13 +6189,20 @@ function MealHistory({ navigate }) {
                         <div className="mt-3 grid grid-cols-3 gap-1.5">
                           {[
                             [meal.calories, "kcal", "bg-sky-500"],
+
                             [`${meal.protein_g}g`, "protein", "bg-violet-500"],
+
                             [`${meal.carbs_g}g`, "karbo", "bg-emerald-500"],
+
                             [`${meal.fat_g}g`, "lemak", "bg-amber-400"],
+
                             [`${meal.sugar_g ?? 0}g`, "gula", "bg-rose-400"],
+
                             [
                               `${meal.sodium_mg ?? 0}mg`,
+
                               "natrium",
+
                               "bg-orange-500",
                             ],
                           ].map(([value, label, color]) => (
@@ -6062,6 +6292,7 @@ function MealHistory({ navigate }) {
                 <form
                   onSubmit={(event) => {
                     event.preventDefault()
+
                     saveSessionName()
                   }}
                 >
@@ -6257,14 +6488,35 @@ function ResetPassword() {
         >
           Simpan kata sandi
         </Button>
-        {notice && (
-          <p aria-live="polite" className="mt-4 text-sm text-sky-700">
-            {notice}
-          </p>
-        )}
+        {notice && <NoticeAlert className="mt-4" message={notice} />}
       </form>
     </main>
   )
+}
+
+function OnboardingRoute({ navigate }) {
+  const [state, setState] = useState("loading")
+
+  useEffect(() => {
+    api("/profile")
+
+      .then((profile) =>
+        setState(isCompleteProfile(profile) ? "complete" : "incomplete"),
+      )
+
+      .catch(() => setState("incomplete"))
+  }, [])
+
+  if (state === "loading")
+    return (
+      <main className="grid min-h-screen place-items-center text-sm text-slate-500">
+        Memuat profil…
+      </main>
+    )
+
+  if (state === "complete") return <Navigate replace to="/dashboard" />
+
+  return <Onboarding navigate={navigate} />
 }
 
 export default function App() {
@@ -6332,7 +6584,7 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <Onboarding navigate={go} />
+            <OnboardingRoute navigate={go} />
           </ProtectedRoute>
         }
         path="/onboarding"

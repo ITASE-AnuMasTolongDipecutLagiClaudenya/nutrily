@@ -7,6 +7,14 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(Boolean(supabase))
 
+  const updateUserMetadata = async (metadata) => {
+    const { data, error } = await supabase.auth.updateUser({ data: metadata })
+    if (error) throw error
+    setSession((current) =>
+      current ? { ...current, user: data.user } : current,
+    )
+  }
+
   useEffect(() => {
     if (!supabase) return
     supabase.auth
@@ -25,7 +33,12 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        updateUserMetadata,
+      }}
     >
       {children}
     </AuthContext.Provider>

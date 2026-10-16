@@ -1,7 +1,9 @@
 import { supabase } from "./supabase"
 import { featureFromRequest } from "./feature-usage"
 
-const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080"
+const baseUrl = (import.meta.env.VITE_API_URL || "http://localhost:8080")
+  .replace(/\/+$/, "")
+  .replace(/\/api$/, "")
 
 export async function verifyTurnstile(token) {
   const response = await fetch(`${baseUrl}/api/auth/verify-turnstile`, {
