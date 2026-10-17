@@ -973,6 +973,21 @@ function ScannerFlow({ navigate, onSessionName }) {
                             <Trash2 className="size-4" />
                           </button>
                         </div>
+                        {item.raw_name && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Tertulis: <span className="font-medium">{item.raw_name}</span>
+                            {item.name_confidence === "low" && (
+                              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                Perlu dicek
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {!item.raw_name && item.name_confidence === "low" && (
+                          <p className="mt-1 text-xs text-amber-700">
+                            Nama produk kurang pasti. Mohon dicek.
+                          </p>
+                        )}
                         {item.nutrition_source && (
                           <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                             {item.nutrition_source === "catalog"
@@ -983,9 +998,11 @@ function ScannerFlow({ navigate, onSessionName }) {
                                   ? "Katalog + estimasi bersumber"
                                   : item.nutrition_source === "label_estimate"
                                     ? "Label + estimasi bersumber"
-                                    : item.nutrition_source === "label"
-                                      ? "Dari label foto"
-                                      : "Estimasi bersumber"}
+                                    : item.nutrition_source === "estimate_unsourced"
+                                      ? "Estimasi AI tanpa sumber"
+                                      : item.nutrition_source === "label"
+                                        ? "Dari label foto"
+                                        : "Estimasi bersumber"}
                           </p>
                         )}
                         {nutritionSources(item.sources).length > 0 && (
