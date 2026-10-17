@@ -13,15 +13,7 @@ import { createPortal } from "react-dom"
 
 import { AnimatePresence, motion } from "framer-motion"
 
-import ReactMarkdown from "react-markdown"
-
-import remarkMath from "remark-math"
-
-import remarkGfm from "remark-gfm"
-
-import rehypeKatex from "rehype-katex"
-
-import "katex/dist/katex.min.css"
+import Markdown from "./components/ui/markdown"
 
 import {
   Activity,
@@ -3110,6 +3102,10 @@ function AppShell({
 
   scannerBack = false,
 
+  summaryNav = false,
+
+  summaryTitle = "",
+
   camera = false,
 }) {
   const { user } = useAuth()
@@ -3337,38 +3333,52 @@ function AppShell({
           >
             {minimal ? (
               <>
-                <Brand />
-                {scannerBack && (
-                  <button
-                    className="absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-700 sm:gap-2 sm:px-3 sm:text-sm"
-                    onClick={() => navigate("/scanner")}
-                    type="button"
-                  >
-                    <ArrowLeft className="size-4" />
-                    <span className="hidden sm:inline">
-                      Kembali ke pemindai
-                    </span>
-                    <span className="sm:hidden">Pemindai</span>
-                  </button>
+                <Brand compact={summaryNav} />
+                {summaryNav && (
+                  <p className="absolute left-1/2 max-w-[55%] -translate-x-1/2 truncate text-sm font-semibold text-slate-800 sm:text-base">
+                    {summaryTitle}
+                  </p>
                 )}
-                <ProfileDropdown
-                  data={{
-                    name:
-                      user?.user_metadata?.full_name ||
-                      user?.email?.split("@")[0] ||
-                      "Profil Nutrily",
+                {summaryNav ? (
+                  <HeaderBackButton
+                    label="Kembali ke pemindai"
+                    onClick={() => navigate("/scanner")}
+                  />
+                ) : (
+                  <>
+                    {scannerBack && (
+                      <button
+                        className="absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-700 sm:gap-2 sm:px-3 sm:text-sm"
+                        onClick={() => navigate("/scanner")}
+                        type="button"
+                      >
+                        <ArrowLeft className="size-4" />
+                        <span className="hidden sm:inline">
+                          Kembali ke pemindai
+                        </span>
+                        <span className="sm:hidden">Pemindai</span>
+                      </button>
+                    )}
+                    <ProfileDropdown
+                      data={{
+                        name:
+                          user?.user_metadata?.full_name ||
+                          user?.email?.split("@")[0] ||
+                          "Profil Nutrily",
 
-                    email: user?.email || "",
+                        email: user?.email || "",
 
-                    avatar: getProfileAvatarUrl(user),
-                  }}
-                  onEditProfile={() => navigate("/profile/account")}
-                  onSignOut={async () => {
-                    await supabase?.auth.signOut()
+                        avatar: getProfileAvatarUrl(user),
+                      }}
+                      onEditProfile={() => navigate("/profile/account")}
+                      onSignOut={async () => {
+                        await supabase?.auth.signOut()
 
-                    navigate("/")
-                  }}
-                />
+                        navigate("/")
+                      }}
+                    />
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -4619,15 +4629,21 @@ function Scanner({ navigate }) {
   const isCamera =
     pathname === "/scanner/receipt" || pathname === "/scanner/label"
 
+  const isSummary = pathname.startsWith("/scanner/summary/")
+
+  const [sessionName, setSessionName] = useState("")
+
   return (
     <AppShell
       active="scanner"
       minimal={!isScannerHome}
       scannerBack={!isScannerHome && !isCamera}
+      summaryNav={isSummary}
+      summaryTitle={sessionName}
       camera={isCamera}
       navigate={navigate}
     >
-      <ScannerFlow navigate={navigate} />
+      <ScannerFlow navigate={navigate} onSessionName={setSessionName} />
     </AppShell>
   )
 }
@@ -4643,100 +4659,6 @@ function ChatRoute({ navigate }) {
         routeConversationId={conversationId}
       />
     </ProtectedRoute>
-  )
-}
-
-function ChatMarkdown({ content }) {
-  return (
-    <div className="chat-markdown min-w-0">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{
-          h1: ({ children }) => (
-            <h2 className="mb-3 mt-5 text-xl font-bold text-slate-900 first:mt-0">
-              {children}
-            </h2>
-          ),
-
-          h2: ({ children }) => (
-            <h3 className="mb-2 mt-5 text-lg font-bold text-slate-900 first:mt-0">
-              {children}
-            </h3>
-          ),
-
-          h3: ({ children }) => (
-            <h4 className="mb-2 mt-4 text-base font-bold text-slate-900">
-              {children}
-            </h4>
-          ),
-
-          p: ({ children }) => (
-            <p className="my-2 leading-7 text-slate-700 last:mb-0">
-              {children}
-            </p>
-          ),
-
-          ul: ({ children }) => (
-            <ul className="my-3 list-disc space-y-1 pl-6 text-slate-700">
-              {children}
-            </ul>
-          ),
-
-          ol: ({ children }) => (
-            <ol className="my-3 list-decimal space-y-1 pl-6 text-slate-700">
-              {children}
-            </ol>
-          ),
-
-          li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
-
-          strong: ({ children }) => (
-            <strong className="font-bold text-slate-900">{children}</strong>
-          ),
-
-          blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-sky-300 pl-4 text-slate-600">
-              {children}
-            </blockquote>
-          ),
-
-          pre: ({ children }) => (
-            <pre className="my-3 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm text-slate-100">
-              {children}
-            </pre>
-          ),
-
-          code: ({ children }) => (
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-sky-800">
-              {children}
-            </code>
-          ),
-
-          table: ({ children }) => (
-            <div className="my-3 overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                {children}
-              </table>
-            </div>
-          ),
-
-          th: ({ children }) => (
-            <th className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-800">
-              {children}
-            </th>
-          ),
-
-          td: ({ children }) => (
-            <td className="border-b border-slate-100 px-3 py-2 text-slate-700">
-              {children}
-            </td>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
   )
 }
 
@@ -5304,7 +5226,7 @@ function Chat({ navigate, routeConversationId }) {
                           />
                         </div>
                         <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-[15px] leading-7 text-slate-700 shadow-[0_8px_28px_-22px_rgba(15,23,42,.28)] sm:px-6">
-                          <ChatMarkdown content={item.text} />
+                          <Markdown content={item.text} />
                         </div>
                       </div>
                     ) : (
@@ -5606,6 +5528,31 @@ function MealHistory({ navigate }) {
 
     currentPage * pageSize,
   )
+
+  const openSummary = (session) =>
+    session.scan_session_id &&
+    navigate(`/scanner/summary/${session.scan_session_id}`, {
+      state: {
+        scanSession: {
+          sessionId: session.scan_session_id,
+          mode: session.scan_mode,
+          sessionName: session.session_name,
+          savedCount: session.meals.length,
+          advice: "",
+          items: session.meals.map((meal) => ({
+            name: meal.name,
+            serving_size: meal.serving_size,
+            calories: meal.calories,
+            protein_g: meal.protein_g,
+            carbs_g: meal.carbs_g,
+            fat_g: meal.fat_g,
+            sugar_g: meal.sugar_g,
+            sodium_mg: meal.sodium_mg,
+            sources: meal.nutrition_sources || [],
+          })),
+        },
+      },
+    })
 
   const allSelected =
     currentSessions.length > 0 &&
@@ -5913,12 +5860,7 @@ function MealHistory({ navigate }) {
                           </span>
                           <button
                             className="min-w-0 text-left"
-                            onClick={() =>
-                              session.scan_session_id &&
-                              navigate(
-                                `/scanner/summary/${session.scan_session_id}`,
-                              )
-                            }
+                            onClick={() => openSummary(session)}
                             type="button"
                           >
                             <p className="font-semibold text-slate-800 hover:text-sky-700">
@@ -6119,10 +6061,7 @@ function MealHistory({ navigate }) {
                   <div className="min-w-0 flex-1">
                     <button
                       className="min-w-0 text-left"
-                      onClick={() =>
-                        session.scan_session_id &&
-                        navigate(`/scanner/summary/${session.scan_session_id}`)
-                      }
+                      onClick={() => openSummary(session)}
                       type="button"
                     >
                       <h3 className="truncate text-left text-sm font-semibold text-slate-800 hover:text-sky-700">

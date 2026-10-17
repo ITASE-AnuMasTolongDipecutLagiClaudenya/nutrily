@@ -14,13 +14,14 @@ import {
   Send,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react"
 
 import { useLocation } from "react-router-dom"
 
 import { api } from "../lib/api"
 import NoticeAlert from "./ui/notice-alert"
+
+import Markdown from "./ui/markdown"
 
 import { useAuth } from "../lib/AuthProvider"
 
@@ -370,8 +371,8 @@ function ScannerLanding({ navigate, start }) {
   )
 }
 
-function ScannerFlow({ navigate }) {
-  const { pathname } = useLocation()
+function ScannerFlow({ navigate, onSessionName }) {
+  const { pathname, state: locationState } = useLocation()
 
   const { user } = useAuth()
 
@@ -401,6 +402,14 @@ function ScannerFlow({ navigate }) {
 
   const [copied, setCopied] = useState(false)
 
+  const chatScrollRef = useRef(null)
+
+  useEffect(() => {
+    const node = chatScrollRef.current
+
+    if (node) node.scrollTop = node.scrollHeight
+  }, [busy, messages])
+
   const modeMatch = pathname.match(/^\/scanner\/(receipt|label)(\/confirm)?$/)
 
   const mode = modeMatch?.[1]
@@ -425,6 +434,10 @@ function ScannerFlow({ navigate }) {
     setSessionReady(true)
   }, [storageKey])
 
+  useEffect(() => {
+    onSessionName?.(session?.sessionName || "")
+  }, [onSessionName, session?.sessionName])
+
   const saveSession = (next) => {
     sessionRef.current = next
 
@@ -435,20 +448,6 @@ function ScannerFlow({ navigate }) {
     } catch {
       /* session remains available in memory */
     }
-  }
-
-  const clearSession = () => {
-    sessionRef.current = null
-
-    setSession(null)
-
-    sessionStorage.removeItem(storageKey)
-
-    setMessages([])
-
-    setMessageSessionId("")
-
-    setNotice("")
   }
 
   const start = (nextMode) => {
@@ -480,13 +479,18 @@ function ScannerFlow({ navigate }) {
   }
 
   useEffect(() => {
+    if (!sessionReady || !isSummary || !summaryId) return
+
+    const navigationSession = locationState?.scanSession
     if (
-      !sessionReady ||
-      !isSummary ||
-      !summaryId ||
-      session?.sessionId === summaryId
-    )
+      navigationSession?.sessionId === summaryId &&
+      session?.sessionId !== summaryId
+    ) {
+      saveSession(navigationSession)
       return
+    }
+
+    if (session?.sessionId === summaryId) return
 
     let active = true
 
@@ -543,11 +547,19 @@ function ScannerFlow({ navigate }) {
     return () => {
       active = false
     }
-  }, [isSummary, navigate, session?.sessionId, sessionReady, summaryId])
+  }, [
+    isSummary,
+    locationState,
+    navigate,
+    session?.sessionId,
+    sessionReady,
+    summaryId,
+  ])
 
   useEffect(() => {
+    if (!sessionReady) return
+
     if (
-      !sessionReady ||
       (isConfirm &&
         (!session || !session.items?.length || session.mode !== mode)) ||
       (!isConfirm && !isSummary && pathname !== "/scanner" && !modeMatch)
@@ -599,6 +611,14 @@ function ScannerFlow({ navigate }) {
 
         const conversation =
           summaryIndex >= 0 ? history.slice(summaryIndex + 2) : history
+
+        const advice =
+          summaryIndex >= 0 && history[summaryIndex + 1]?.role === "assistant"
+            ? history[summaryIndex + 1].content
+            : ""
+
+        if (advice && sessionRef.current && !sessionRef.current.advice)
+          saveSession({ ...sessionRef.current, advice })
 
         setMessages(
           conversation.map((item) => ({
@@ -1109,15 +1129,9 @@ function ScannerFlow({ navigate }) {
       )}
 
       {isSummary && session?.sessionId === summaryId && (
-        <main className="mx-auto max-w-6xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
+        <main className="font-poppins mx-auto w-[92%] px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
           <div className="mb-7">
-            <p className="text-sm font-semibold text-sky-600">
-              Hasil pemindaian
-            </p>
-            <p className="mt-1 text-sm font-semibold text-slate-600">
-              {session.sessionName || copy[session.mode]?.title}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Ringkasan gizimu
             </h1>
             <p className="mt-2 text-sm text-slate-500">
@@ -1125,141 +1139,157 @@ function ScannerFlow({ navigate }) {
               {copy[session.mode]?.title.toLowerCase()}.
             </p>
           </div>
-          <div className="grid items-start gap-5 xl:grid-cols-[1.25fr_.75fr]">
-            <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="text-lg font-bold text-slate-900">
-                Item yang dipindai
-              </h2>
-              <ul className="mt-3 divide-y divide-slate-100">
-                {session.items.map((item, index) => (
-                  <li
-                    className="flex items-start justify-between gap-4 py-4"
-                    key={`${item.name}-${index}`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">
-                        {item.name || "Makanan"}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-400">
-                        {item.serving_size || "Takaran saji tidak diketahui"}
-                      </span>
-                      {nutritionSources(item.sources).length > 0 && (
-                        <span className="mt-1 block text-xs text-slate-500">
-                          Sumber:{" "}
-                          {nutritionSources(item.sources).map(
-                            (source, sourceIndex) => (
-                              <a
-                                className="mr-2 text-sky-700 underline underline-offset-2 hover:text-sky-900"
-                                href={source.url}
-                                key={source.url}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                {source.title || `Sumber ${sourceIndex + 1}`}
-                              </a>
-                            ),
-                          )}
+          <div className="grid items-start gap-5 lg:grid-cols-[1.25fr_.75fr]">
+            <div className="flex flex-col gap-5">
+              <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Item yang dipindai
+                </h2>
+                <ul className="mt-3 divide-y divide-slate-100">
+                  {session.items.map((item, index) => (
+                    <li
+                      className="flex items-start justify-between gap-4 py-4"
+                      key={`${item.name}-${index}`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {item.name || "Makanan"}
                         </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-sm font-semibold text-slate-800">
-                      {item.calories == null ? "—" : `${item.calories} kkal`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="text-lg font-bold text-slate-900">Total gizi</h2>
-              <div className="mt-3 grid grid-cols-2 gap-x-5">
-                {[
-                  ["Energi", "calories", "kkal"],
-
-                  ["Protein", "protein_g", "g"],
-
-                  ["Karbohidrat", "carbs_g", "g"],
-
-                  ["Lemak", "fat_g", "g"],
-
-                  ["Gula", "sugar_g", "g"],
-
-                  ["Natrium", "sodium_mg", "mg"],
-                ].map(([label, key, unit]) => {
-                  const known = session.items.filter(
-                    (item) =>
-                      Number.isFinite(Number(item[key])) && item[key] != null,
-                  )
-
-                  const total = known.length
-                    ? known.reduce((sum, item) => sum + Number(item[key]), 0)
-                    : null
-
-                  return (
-                    <div className="border-b border-slate-100 py-3" key={key}>
-                      <p className="text-xs text-slate-500">{label}</p>
-                      <p className="mt-1 text-base font-bold text-slate-900">
-                        {total == null
-                          ? "Belum terbaca"
-                          : `${
-                              known.length < session.items.length ? "~" : ""
-                            }${Number(total.toFixed(1))} ${unit}`}
-                      </p>
-                      {known.length > 0 &&
-                        known.length < session.items.length && (
-                          <p className="mt-1 text-[10px] text-slate-400">
-                            {known.length}/{session.items.length} item terbaca
-                          </p>
+                        <span className="mt-1 block text-xs text-slate-400">
+                          {item.serving_size || "Takaran saji tidak diketahui"}
+                        </span>
+                        {nutritionSources(item.sources).length > 0 && (
+                          <span className="mt-1 block text-xs text-slate-500">
+                            Sumber:{" "}
+                            {nutritionSources(item.sources).map(
+                              (source, sourceIndex) => (
+                                <a
+                                  className="mr-2 text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                                  href={source.url}
+                                  key={source.url}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  {source.title || `Sumber ${sourceIndex + 1}`}
+                                </a>
+                              ),
+                            )}
+                          </span>
                         )}
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                <div className="min-w-0">
-                  <p className="text-[11px] text-slate-500">
-                    ID sesi konsultasi
-                  </p>
-                  <p className="mt-1 break-all font-mono text-xs text-slate-600">
-                    {session.sessionId}
-                  </p>
-                </div>
-                <button
-                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  aria-label="Salin ID sesi"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(session.sessionId)
-
-                      setCopied(true)
-
-                      setTimeout(() => setCopied(false), 1500)
-                    } catch {
-                      setNotice("ID sesi tidak dapat disalin.")
-                    }
-                  }}
-                >
-                  {copied ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </button>
-              </div>
-            </section>
-            {session.advice && (
-              <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6 xl:col-span-2">
-                <div className="flex items-center gap-2 text-sky-700">
-                  <Sparkles className="size-4" />
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Rekomendasi gizi
-                  </h2>
-                </div>
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
-                  {session.advice}
-                </p>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold text-slate-800">
+                        {item.calories == null ? "—" : `${item.calories} kkal`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </section>
-            )}
-            <section className="mt-5 rounded-3xl border border-slate-100 bg-white shadow-sm xl:col-span-2">
+              {session.advice && (
+                <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                  <div className="flex items-center gap-2 text-sky-700">
+                    <Sparkles className="size-4" />
+                    <h2 className="text-lg font-bold text-slate-900">
+                      Rekomendasi gizi
+                    </h2>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-600">
+                    <Markdown content={session.advice} />
+                  </div>
+                </section>
+              )}
+            </div>
+            <div className="lg:self-stretch">
+              <div className="lg:sticky lg:top-24">
+                <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Total gizi
+                  </h2>
+                  <div className="mt-3 grid grid-cols-2 gap-x-5">
+                    {[
+                      ["Energi", "calories", "kkal"],
+
+                      ["Protein", "protein_g", "g"],
+
+                      ["Karbohidrat", "carbs_g", "g"],
+
+                      ["Lemak", "fat_g", "g"],
+
+                      ["Gula", "sugar_g", "g"],
+
+                      ["Natrium", "sodium_mg", "mg"],
+                    ].map(([label, key, unit]) => {
+                      const known = session.items.filter(
+                        (item) =>
+                          Number.isFinite(Number(item[key])) &&
+                          item[key] != null,
+                      )
+
+                      const total = known.length
+                        ? known.reduce(
+                            (sum, item) => sum + Number(item[key]),
+                            0,
+                          )
+                        : null
+
+                      return (
+                        <div
+                          className="border-b border-slate-100 py-3"
+                          key={key}
+                        >
+                          <p className="text-xs text-slate-500">{label}</p>
+                          <p className="mt-1 text-base font-bold text-slate-900">
+                            {total == null
+                              ? "Belum terbaca"
+                              : `${
+                                  known.length < session.items.length ? "~" : ""
+                                }${Number(total.toFixed(1))} ${unit}`}
+                          </p>
+                          {known.length > 0 &&
+                            known.length < session.items.length && (
+                              <p className="mt-1 text-[10px] text-slate-400">
+                                {known.length}/{session.items.length} item
+                                terbaca
+                              </p>
+                            )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-slate-500">
+                        ID sesi konsultasi
+                      </p>
+                      <p className="mt-1 break-all font-mono text-xs text-slate-600">
+                        {session.sessionId}
+                      </p>
+                    </div>
+                    <button
+                      className="grid size-9 shrink-0 place-items-center rounded-lg bg-sky-500 text-white transition-colors hover:bg-sky-600"
+                      aria-label="Salin ID sesi"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(session.sessionId)
+
+                          setCopied(true)
+
+                          setTimeout(() => setCopied(false), 1500)
+                        } catch {
+                          setNotice("ID sesi tidak dapat disalin.")
+                        }
+                      }}
+                    >
+                      {copied ? (
+                        <Check className="size-4" />
+                      ) : (
+                        <Copy className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </div>
+            <section className="rounded-3xl border border-slate-100 bg-white shadow-sm lg:col-span-2">
               <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
                 <h2 className="text-lg font-bold text-slate-900">
                   Tanya tentang hasil ini
@@ -1270,7 +1300,8 @@ function ScannerFlow({ navigate }) {
               </div>
               <div
                 aria-live="polite"
-                className="max-h-80 space-y-4 overflow-y-auto px-5 py-5 sm:px-6"
+                className="max-h-80 space-y-4 overflow-y-auto bg-slate-50 px-5 py-5 sm:px-6"
+                ref={chatScrollRef}
               >
                 {!messages.length && (
                   <p className="text-sm text-slate-400">
@@ -1278,18 +1309,34 @@ function ScannerFlow({ navigate }) {
                   </p>
                 )}
                 {(messageSessionId === summaryId ? messages : []).map(
-                  (item, index) => (
-                    <p
-                      className={`max-w-[90%] whitespace-pre-line px-1 py-2 text-sm leading-6 ${
-                        item.from === "ai"
-                          ? "text-slate-600"
-                          : "ml-auto rounded-xl bg-sky-50 px-4 text-sky-900"
-                      }`}
-                      key={`${index}-${item.from}`}
-                    >
-                      {item.text}
-                    </p>
-                  ),
+                  (item, index) =>
+                    item.from === "ai" ? (
+                      <div
+                        className="mr-auto max-w-[85%] rounded-2xl rounded-tl-sm border border-slate-100 bg-white px-4 py-2.5 text-sm leading-6 text-slate-700 shadow-sm"
+                        key={`${index}-${item.from}`}
+                      >
+                        <Markdown content={item.text} />
+                      </div>
+                    ) : (
+                      <div
+                        className="ml-auto max-w-[85%] whitespace-pre-line rounded-2xl rounded-tr-sm bg-sky-500 px-4 py-2.5 text-sm leading-6 text-white shadow-sm shadow-sky-200"
+                        key={`${index}-${item.from}`}
+                      >
+                        {item.text}
+                      </div>
+                    ),
+                )}
+                {busy && (
+                  <div className="mr-auto flex max-w-[85%] items-center gap-2.5 rounded-2xl rounded-tl-sm border border-slate-100 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                    <span className="flex items-center gap-1">
+                      <span className="size-1.5 animate-bounce rounded-full bg-sky-500 [animation-delay:-300ms]" />
+                      <span className="size-1.5 animate-bounce rounded-full bg-sky-500 [animation-delay:-150ms]" />
+                      <span className="size-1.5 animate-bounce rounded-full bg-sky-500" />
+                    </span>
+                    <span className="animate-pulse">
+                      Nutrily AI sedang berpikir…
+                    </span>
+                  </div>
                 )}
               </div>
               {notice && (
@@ -1320,24 +1367,10 @@ function ScannerFlow({ navigate }) {
               </form>
             </section>
           </div>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={() => navigate("/dashboard")}>
-              Lihat dasbor
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => navigate(`/chat/${summaryId}`)}
-            >
-              <Sparkles className="size-4" /> Lanjutkan konsultasi di chat
-            </Button>
-            <Button
-              onClick={() => {
-                clearSession()
-
-                navigate("/scanner")
-              }}
-            >
-              <X className="size-4" /> Sesi baru
+          <div className="mt-4">
+            <Button onClick={() => navigate(`/chat/${summaryId}`)}>
+              <Sparkles className="size-4" /> Lanjutkan konsultasi lanjutan di
+              chat
             </Button>
           </div>
         </main>
