@@ -68,6 +68,17 @@ function readSession(storageKey) {
   }
 }
 
+function nutritionSources(sources) {
+  return Array.isArray(sources)
+    ? sources.filter(
+        (source) =>
+          source &&
+          typeof source.url === "string" &&
+          /^https:\/\//i.test(source.url),
+      )
+    : []
+}
+
 async function optimizeScanImage(image) {
   if (!globalThis.createImageBitmap) return image
 
@@ -75,8 +86,16 @@ async function optimizeScanImage(image) {
   try {
     bitmap = await createImageBitmap(image)
     const maxDimension = 2400
-    let scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height))
-    if (scale === 1 && image.type === "image/jpeg" && image.size <= 2 * 1024 * 1024) return image
+    let scale = Math.min(
+      1,
+      maxDimension / Math.max(bitmap.width, bitmap.height),
+    )
+    if (
+      scale === 1 &&
+      image.type === "image/jpeg" &&
+      image.size <= 2 * 1024 * 1024
+    )
+      return image
 
     const canvas = document.createElement("canvas")
     const context = canvas.getContext("2d")
@@ -92,7 +111,8 @@ async function optimizeScanImage(image) {
         canvas.toBlob(resolve, "image/jpeg", 0.82 - attempt * 0.07),
       )
       if (!blob) return image
-      if (blob.size < best.size) best = new File([blob], "nutrily-scan.jpg", { type: "image/jpeg" })
+      if (blob.size < best.size)
+        best = new File([blob], "nutrily-scan.jpg", { type: "image/jpeg" })
       if (best.size <= 2 * 1024 * 1024) return best
       scale *= 0.85
     }
@@ -497,6 +517,7 @@ function ScannerFlow({ navigate }) {
               fat_g,
               sugar_g,
               sodium_mg,
+              nutrition_sources,
             }) => ({
               name,
               serving_size,
@@ -506,6 +527,7 @@ function ScannerFlow({ navigate }) {
               fat_g,
               sugar_g,
               sodium_mg,
+              sources: nutrition_sources || [],
             }),
           ),
           savedCount: items.length,
@@ -745,6 +767,7 @@ function ScannerFlow({ navigate }) {
             ...nutrition,
 
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
+            nutrition_sources: item.sources || [],
             scan_session_id: id,
             scan_mode: saved.mode,
             scan_session_name: saved.sessionName,
@@ -934,10 +957,34 @@ function ScannerFlow({ navigate }) {
                           <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                             {item.nutrition_source === "catalog"
                               ? "Dari katalog gizi"
-                              : item.nutrition_source === "label"
-                                ? "Dari label foto"
-                                : "Estimasi AI"}
+                              : item.nutrition_source === "catalog_estimate"
+                                ? "Data perkiraan katalog"
+                                : item.nutrition_source === "catalog_grounded"
+                                  ? "Katalog + estimasi bersumber"
+                                  : item.nutrition_source === "label_estimate"
+                                    ? "Label + estimasi bersumber"
+                                    : item.nutrition_source === "label"
+                                      ? "Dari label foto"
+                                      : "Estimasi bersumber"}
                           </p>
+                        )}
+                        {nutritionSources(item.sources).length > 0 && (
+                          <div className="mt-2 text-xs text-slate-500">
+                            <span className="font-medium">Sumber:</span>{" "}
+                            {nutritionSources(item.sources).map(
+                              (source, sourceIndex) => (
+                                <a
+                                  className="mr-2 text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                                  href={source.url}
+                                  key={source.url}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  {source.title || `Sumber ${sourceIndex + 1}`}
+                                </a>
+                              ),
+                            )}
+                          </div>
                         )}
                         {item.category && (
                           <p className="mt-2 text-xs font-semibold capitalize text-emerald-700">
@@ -974,9 +1021,10 @@ function ScannerFlow({ navigate }) {
                             </div>
                           ))}
                         </div>
-                        {item.note && (
+                        {(item.note || item.sources?.length === 0) && (
                           <p className="mt-2 text-xs leading-5 text-slate-500">
-                            {item.note}
+                            {item.note ||
+                              "Sumber estimasi tidak tersedia; angka yang kosong tidak ditebak."}
                           </p>
                         )}
                       </article>
@@ -1095,6 +1143,24 @@ function ScannerFlow({ navigate }) {
                       <span className="mt-1 block text-xs text-slate-400">
                         {item.serving_size || "Takaran saji tidak diketahui"}
                       </span>
+                      {nutritionSources(item.sources).length > 0 && (
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Sumber:{" "}
+                          {nutritionSources(item.sources).map(
+                            (source, sourceIndex) => (
+                              <a
+                                className="mr-2 text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                                href={source.url}
+                                key={source.url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {source.title || `Sumber ${sourceIndex + 1}`}
+                              </a>
+                            ),
+                          )}
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 text-sm font-semibold text-slate-800">
                       {item.calories == null ? "—" : `${item.calories} kkal`}
