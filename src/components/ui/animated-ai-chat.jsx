@@ -35,7 +35,7 @@ export default function AnimatedAIChat({
   }
 
   return (
-    <div className="font-poppins mx-auto w-[90%] max-w-none text-slate-800">
+    <div className="font-poppins mx-auto w-full max-w-3xl text-slate-800">
       {!hasMessages && (
         <div className="mb-5 flex flex-wrap justify-center gap-2">
           {prompts.map((prompt, index) => (

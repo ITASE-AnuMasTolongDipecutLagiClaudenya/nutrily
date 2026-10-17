@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.gitattributes
+.env
+.env.*
+.vite
+.figma/design-context
+backend
