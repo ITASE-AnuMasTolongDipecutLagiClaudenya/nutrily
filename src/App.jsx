@@ -13,15 +13,7 @@ import { createPortal } from "react-dom"
 
 import { AnimatePresence, motion } from "framer-motion"
 
-import ReactMarkdown from "react-markdown"
-
-import remarkMath from "remark-math"
-
-import remarkGfm from "remark-gfm"
-
-import rehypeKatex from "rehype-katex"
-
-import "katex/dist/katex.min.css"
+import Markdown from "./components/ui/markdown"
 
 import {
   Activity,
@@ -88,6 +80,8 @@ import {
 
 import { supabase } from "./lib/supabase"
 
+import { useScrollLock } from "./lib/use-scroll-lock"
+
 import PhoneScrollHero from "./components/PhoneScrollHero"
 
 import PhoneCarouselSection from "./components/PhoneCarouselSection"
@@ -126,7 +120,13 @@ import ProfilePreviewDialog from "./components/ProfilePreviewDialog"
 
 import NoticeAlert from "./components/ui/notice-alert"
 
+import NoticeToast from "./components/ui/notice-toast"
+
 import ConfirmDialog from "./components/ui/confirm-dialog"
+
+import Brand from "./components/brand"
+
+import ScrollProgressBar from "./components/ui/scroll-progress-bar"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
@@ -214,92 +214,9 @@ function HeaderBackButton({ label, onClick, disabled = false }) {
   )
 }
 
-function ScrollProgressBar() {
-  const progressRef = useRef(null)
-
-  useEffect(() => {
-    let frame = 0
-
-    const updateProgress = () => {
-      cancelAnimationFrame(frame)
-
-      frame = requestAnimationFrame(() => {
-        const root = document.documentElement
-
-        const scrollHeight = Math.max(
-          root.scrollHeight,
-
-          document.body.scrollHeight,
-        )
-
-        const viewportHeight = root.clientHeight
-
-        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
-
-        const scrollTop = Math.max(
-          window.scrollY,
-
-          window.__lenis?.animatedScroll || 0,
-        )
-
-        const progress =
-          scrollTop + viewportHeight >= scrollHeight - 2
-            ? 1
-            : maxScroll > 0
-              ? scrollTop / maxScroll
-              : 0
-
-        const percentage = Math.min(1, Math.max(0, progress)) * 100
-
-        const bar = progressRef.current
-
-        if (!bar) return
-
-        bar.style.width = `${percentage}%`
-
-        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
-      })
-    }
-
-    updateProgress()
-
-    window.addEventListener("scroll", updateProgress, { passive: true })
-
-    window.addEventListener("resize", updateProgress)
-
-    const observer = new ResizeObserver(updateProgress)
-
-    observer.observe(document.documentElement)
-
-    observer.observe(document.body)
-
-    return () => {
-      cancelAnimationFrame(frame)
-
-      window.removeEventListener("scroll", updateProgress)
-
-      window.removeEventListener("resize", updateProgress)
-
-      observer.disconnect()
-    }
-  }, [])
-
-  return (
-    <div className="absolute inset-x-0 bottom-0 hidden h-[5px] overflow-hidden bg-sky-100/70 max-lg:block">
-      <div
-        aria-label="Progres scroll halaman"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={0}
-        className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
-        ref={progressRef}
-        role="progressbar"
-      />
-    </div>
-  )
-}
-
 function UnsavedChangesDialog({ onCancel, onDiscard }) {
+  useScrollLock()
+
   return (
     <div
       className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
@@ -339,31 +256,6 @@ function UnsavedChangesDialog({ onCancel, onDiscard }) {
           </button>
         </div>
       </section>
-    </div>
-  )
-}
-
-function Brand({ compact = false, light = false }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <img
-        alt={compact ? "Nutrily" : ""}
-        aria-hidden={!compact}
-        className="size-9 object-contain"
-        src={`${import.meta.env.BASE_URL}logo-biru.png`}
-      />
-      {!compact && (
-        <div
-          className={cn(
-            "text-2xl font-bold tracking-tight",
-
-            light ? "text-white" : "text-black",
-          )}
-        >
-          Nutri
-          <span className={light ? "text-sky-300" : "text-sky-500"}>ly</span>
-        </div>
-      )}
     </div>
   )
 }
@@ -1240,7 +1132,7 @@ function Auth({ navigate }) {
               </p>
             </div>
           </div>
-          {notice && <NoticeAlert className="mt-4" message={notice} />}
+          <NoticeToast message={notice} onClose={() => setNotice("")} />
         </div>
       </section>
     </main>
@@ -1349,6 +1241,8 @@ function Onboarding({ navigate, editMode = false }) {
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
 
   const [previewTargets, setPreviewTargets] = useState(null)
+
+  useScrollLock(confirmUpdate)
 
   const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
 
@@ -1490,14 +1384,6 @@ function Onboarding({ navigate, editMode = false }) {
       window.clearTimeout(timer)
     }
   }, [age, gender, status, weight, height, activity, isGym, goal])
-
-  useEffect(() => {
-    if (!notice) return
-
-    const timer = window.setTimeout(() => setNotice(""), 4500)
-
-    return () => window.clearTimeout(timer)
-  }, [notice])
 
   const onboardingProfile = {
     age,
@@ -2138,15 +2024,7 @@ function Onboarding({ navigate, editMode = false }) {
           </p>
         </div>
       </div>
-      {notice && (
-        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <NoticeAlert
-            className="onboarding-toast pointer-events-auto"
-            message={notice}
-            onClose={() => setNotice("")}
-          />
-        </div>
-      )}
+      <NoticeToast message={notice} onClose={() => setNotice("")} />
       {confirmUpdate && (
         <div
           className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
@@ -2243,19 +2121,6 @@ function ProfilePage({ navigate }) {
   useEffect(() => {
     if (location.state?.notice) setNotice(location.state.notice)
   }, [location.state?.notice])
-
-  useEffect(() => {
-    if (!notice) return
-
-    const timer = window.setTimeout(() => {
-      setNotice("")
-
-      if (location.state?.notice)
-        navigate("/profile", { replace: true, state: null })
-    }, 4500)
-
-    return () => window.clearTimeout(timer)
-  }, [notice, location.state?.notice])
 
   useEffect(() => {
     let active = true
@@ -2419,19 +2284,15 @@ function ProfilePage({ navigate }) {
           </div>
         )}
       </div>
-      {notice && (
-        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <NoticeAlert
-            className="onboarding-toast pointer-events-auto"
-            message={notice}
-            onClose={() => {
-              setNotice("")
-              if (location.state?.notice)
-                navigate("/profile", { replace: true, state: null })
-            }}
-          />
-        </div>
-      )}
+      <NoticeToast
+        message={notice}
+        onClose={() => {
+          setNotice("")
+
+          if (location.state?.notice)
+            navigate("/profile", { replace: true, state: null })
+        }}
+      />
       {showProfilePreview && (
         <ProfilePreviewDialog
           avatar={avatarUrl}
@@ -2469,7 +2330,10 @@ function ProfileAccountPage({ navigate }) {
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
 
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
+
   const [deleteAvatarPending, setDeleteAvatarPending] = useState(false)
+
+  useScrollLock(showSaveConfirmation)
 
   const customAvatar = hasCustomAvatar(avatarUrl, originalAvatarUrl)
   const nameHasChanged = name.trim() !== initialName.trim()
@@ -2697,7 +2561,7 @@ function ProfileAccountPage({ navigate }) {
               </Button>
             </div>
           </form>
-          {notice && <NoticeAlert className="mt-4" message={notice} />}
+          <NoticeToast message={notice} onClose={() => setNotice("")} />
         </section>
       </div>
       {showUnsavedChanges && (
@@ -3110,9 +2974,30 @@ function AppShell({
 
   scannerBack = false,
 
+  summaryNav = false,
+
+  summaryTitle = "",
+
   camera = false,
 }) {
   const { user } = useAuth()
+
+  const wibHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    }).format(new Date()),
+  )
+
+  const greeting =
+    wibHour < 11
+      ? "pagi"
+      : wibHour < 15
+        ? "siang"
+        : wibHour < 19
+          ? "sore"
+          : "malam"
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -3132,74 +3017,6 @@ function AppShell({
 
     ["meals", "Riwayat", History],
   ]
-
-  const scrollProgressRef = useRef(null)
-
-  useEffect(() => {
-    let frame = 0
-
-    const updateProgress = () => {
-      cancelAnimationFrame(frame)
-
-      frame = requestAnimationFrame(() => {
-        const lenis = window.__lenis
-
-        const root = document.documentElement
-
-        const scrollHeight = Math.max(
-          root.scrollHeight,
-
-          document.body.scrollHeight,
-        )
-
-        const viewportHeight = root.clientHeight
-
-        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
-
-        const scrollTop = Math.max(window.scrollY, lenis?.animatedScroll || 0)
-
-        const atBottom = scrollTop + viewportHeight >= scrollHeight - 2
-
-        const progress = atBottom
-          ? 1
-          : maxScroll > 0
-            ? scrollTop / maxScroll
-            : 0
-
-        const bar = scrollProgressRef.current
-
-        if (!bar) return
-
-        const percentage = Math.min(1, Math.max(0, progress)) * 100
-
-        bar.style.width = `${percentage}%`
-
-        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
-      })
-    }
-
-    updateProgress()
-
-    window.addEventListener("scroll", updateProgress, { passive: true })
-
-    window.addEventListener("resize", updateProgress)
-
-    const observer = new ResizeObserver(updateProgress)
-
-    observer.observe(document.documentElement)
-
-    observer.observe(document.body)
-
-    return () => {
-      cancelAnimationFrame(frame)
-
-      observer.disconnect()
-
-      window.removeEventListener("scroll", updateProgress)
-
-      window.removeEventListener("resize", updateProgress)
-    }
-  }, [])
 
   return (
     <div className="dashboard-shell min-h-screen bg-slate-50 text-slate-900">
@@ -3337,38 +3154,52 @@ function AppShell({
           >
             {minimal ? (
               <>
-                <Brand />
-                {scannerBack && (
-                  <button
-                    className="absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-700 sm:gap-2 sm:px-3 sm:text-sm"
-                    onClick={() => navigate("/scanner")}
-                    type="button"
-                  >
-                    <ArrowLeft className="size-4" />
-                    <span className="hidden sm:inline">
-                      Kembali ke pemindai
-                    </span>
-                    <span className="sm:hidden">Pemindai</span>
-                  </button>
+                <Brand compact={summaryNav} />
+                {summaryNav && (
+                  <p className="absolute left-1/2 max-w-[55%] -translate-x-1/2 truncate text-sm font-semibold text-slate-800 sm:text-base">
+                    {summaryTitle}
+                  </p>
                 )}
-                <ProfileDropdown
-                  data={{
-                    name:
-                      user?.user_metadata?.full_name ||
-                      user?.email?.split("@")[0] ||
-                      "Profil Nutrily",
+                {summaryNav ? (
+                  <HeaderBackButton
+                    label="Kembali ke pemindai"
+                    onClick={() => navigate("/scanner")}
+                  />
+                ) : (
+                  <>
+                    {scannerBack && (
+                      <button
+                        className="absolute left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-700 sm:gap-2 sm:px-3 sm:text-sm"
+                        onClick={() => navigate("/scanner")}
+                        type="button"
+                      >
+                        <ArrowLeft className="size-4" />
+                        <span className="hidden sm:inline">
+                          Kembali ke pemindai
+                        </span>
+                        <span className="sm:hidden">Pemindai</span>
+                      </button>
+                    )}
+                    <ProfileDropdown
+                      data={{
+                        name:
+                          user?.user_metadata?.full_name ||
+                          user?.email?.split("@")[0] ||
+                          "Profil Nutrily",
 
-                    email: user?.email || "",
+                        email: user?.email || "",
 
-                    avatar: getProfileAvatarUrl(user),
-                  }}
-                  onEditProfile={() => navigate("/profile/account")}
-                  onSignOut={async () => {
-                    await supabase?.auth.signOut()
+                        avatar: getProfileAvatarUrl(user),
+                      }}
+                      onEditProfile={() => navigate("/profile/account")}
+                      onSignOut={async () => {
+                        await supabase?.auth.signOut()
 
-                    navigate("/")
-                  }}
-                />
+                        navigate("/")
+                      }}
+                    />
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -3383,10 +3214,12 @@ function AppShell({
                       day: "numeric",
 
                       month: "long",
+
+                      timeZone: "Asia/Jakarta",
                     })}
                   </p>
                   <p className="mt-0.5 font-bold text-slate-800">
-                    Selamat pagi,{" "}
+                    Selamat {greeting},{" "}
                     {user?.user_metadata?.full_name?.split(" ")[0] ||
                       user?.email?.split("@")[0] ||
                       "teman"}
@@ -3412,17 +3245,7 @@ function AppShell({
                 />
               </>
             )}
-            <div className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70">
-              <div
-                aria-label="Progres scroll halaman"
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={0}
-                className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
-                ref={scrollProgressRef}
-                role="progressbar"
-              />
-            </div>
+            <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
           </header>
         )}
         {children}
@@ -3707,9 +3530,10 @@ function Dashboard({ navigate }) {
   return (
     <AppShell active="dashboard" navigate={navigate}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
-        {dashboardNotice && (
-          <NoticeAlert className="mb-5" message={dashboardNotice} />
-        )}
+        <NoticeToast
+          message={dashboardNotice}
+          onClose={() => setDashboardNotice("")}
+        />
         <div className="mb-7 md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold text-sky-600">
@@ -4619,15 +4443,25 @@ function Scanner({ navigate }) {
   const isCamera =
     pathname === "/scanner/receipt" || pathname === "/scanner/label"
 
+  const isConfirm =
+    pathname === "/scanner/receipt/confirm" ||
+    pathname === "/scanner/label/confirm"
+
+  const isSummary = pathname.startsWith("/scanner/summary/")
+
+  const [sessionName, setSessionName] = useState("")
+
   return (
     <AppShell
       active="scanner"
       minimal={!isScannerHome}
       scannerBack={!isScannerHome && !isCamera}
-      camera={isCamera}
+      summaryNav={isSummary}
+      summaryTitle={sessionName}
+      camera={isCamera || isConfirm}
       navigate={navigate}
     >
-      <ScannerFlow navigate={navigate} />
+      <ScannerFlow navigate={navigate} onSessionName={setSessionName} />
     </AppShell>
   )
 }
@@ -4643,100 +4477,6 @@ function ChatRoute({ navigate }) {
         routeConversationId={conversationId}
       />
     </ProtectedRoute>
-  )
-}
-
-function ChatMarkdown({ content }) {
-  return (
-    <div className="chat-markdown min-w-0">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{
-          h1: ({ children }) => (
-            <h2 className="mb-3 mt-5 text-xl font-bold text-slate-900 first:mt-0">
-              {children}
-            </h2>
-          ),
-
-          h2: ({ children }) => (
-            <h3 className="mb-2 mt-5 text-lg font-bold text-slate-900 first:mt-0">
-              {children}
-            </h3>
-          ),
-
-          h3: ({ children }) => (
-            <h4 className="mb-2 mt-4 text-base font-bold text-slate-900">
-              {children}
-            </h4>
-          ),
-
-          p: ({ children }) => (
-            <p className="my-2 leading-7 text-slate-700 last:mb-0">
-              {children}
-            </p>
-          ),
-
-          ul: ({ children }) => (
-            <ul className="my-3 list-disc space-y-1 pl-6 text-slate-700">
-              {children}
-            </ul>
-          ),
-
-          ol: ({ children }) => (
-            <ol className="my-3 list-decimal space-y-1 pl-6 text-slate-700">
-              {children}
-            </ol>
-          ),
-
-          li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
-
-          strong: ({ children }) => (
-            <strong className="font-bold text-slate-900">{children}</strong>
-          ),
-
-          blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-sky-300 pl-4 text-slate-600">
-              {children}
-            </blockquote>
-          ),
-
-          pre: ({ children }) => (
-            <pre className="my-3 overflow-x-auto rounded-xl bg-slate-900 p-4 text-sm text-slate-100">
-              {children}
-            </pre>
-          ),
-
-          code: ({ children }) => (
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-sky-800">
-              {children}
-            </code>
-          ),
-
-          table: ({ children }) => (
-            <div className="my-3 overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                {children}
-              </table>
-            </div>
-          ),
-
-          th: ({ children }) => (
-            <th className="border-b border-slate-200 px-3 py-2 font-semibold text-slate-800">
-              {children}
-            </th>
-          ),
-
-          td: ({ children }) => (
-            <td className="border-b border-slate-100 px-3 py-2 text-slate-700">
-              {children}
-            </td>
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
   )
 }
 
@@ -4954,8 +4694,6 @@ function Chat({ navigate, routeConversationId }) {
 
     setMessages((current) => [...current, userMessage])
 
-    setConversationId(activeConversationId)
-
     setMessage("")
 
     setImage(null)
@@ -4990,6 +4728,8 @@ function Chat({ navigate, routeConversationId }) {
 
         { from: "ai", text: result.answer },
       ])
+
+      setConversationId(activeConversationId)
 
       const items = await api("/conversations").catch(() => null)
 
@@ -5304,7 +5044,7 @@ function Chat({ navigate, routeConversationId }) {
                           />
                         </div>
                         <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-[15px] leading-7 text-slate-700 shadow-[0_8px_28px_-22px_rgba(15,23,42,.28)] sm:px-6">
-                          <ChatMarkdown content={item.text} />
+                          <Markdown content={item.text} />
                         </div>
                       </div>
                     ) : (
@@ -5383,12 +5123,7 @@ function Chat({ navigate, routeConversationId }) {
                 onSend={send}
                 sending={sending}
               />
-              {notice && (
-                <NoticeAlert
-                  className="mx-auto mt-2 max-w-3xl"
-                  message={notice}
-                />
-              )}
+              <NoticeToast message={notice} onClose={() => setNotice("")} />
             </div>
           </section>
         </div>
@@ -5607,6 +5342,31 @@ function MealHistory({ navigate }) {
     currentPage * pageSize,
   )
 
+  const openSummary = (session) =>
+    session.scan_session_id &&
+    navigate(`/scanner/summary/${session.scan_session_id}`, {
+      state: {
+        scanSession: {
+          sessionId: session.scan_session_id,
+          mode: session.scan_mode,
+          sessionName: session.session_name,
+          savedCount: session.meals.length,
+          advice: "",
+          items: session.meals.map((meal) => ({
+            name: meal.name,
+            serving_size: meal.serving_size,
+            calories: meal.calories,
+            protein_g: meal.protein_g,
+            carbs_g: meal.carbs_g,
+            fat_g: meal.fat_g,
+            sugar_g: meal.sugar_g,
+            sodium_mg: meal.sodium_mg,
+            sources: meal.nutrition_sources || [],
+          })),
+        },
+      },
+    })
+
   const allSelected =
     currentSessions.length > 0 &&
     currentSessions.every((session) => selectedSessions.includes(session.id))
@@ -5704,6 +5464,8 @@ function MealHistory({ navigate }) {
 
     setNotice("")
 
+    const failures = []
+
     try {
       for (const sessionId of selected) {
         const session = sessions.find(({ id }) => id === sessionId)
@@ -5712,14 +5474,16 @@ function MealHistory({ navigate }) {
           ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
           : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
 
-        await api(`/meals?${query}`, { method: "DELETE" })
+        try {
+          await api(`/meals?${query}`, { method: "DELETE" })
+        } catch (error) {
+          failures.push(error.message)
+        }
       }
 
-      setMeals((previous) =>
-        previous.filter(
-          (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
-        ),
-      )
+      const rows = await api("/meals", { method: "GET" })
+
+      setMeals(rows)
 
       setSelectedSessions([])
 
@@ -5731,13 +5495,13 @@ function MealHistory({ navigate }) {
 
       setCurrentPage(1)
 
-      setNotice(`${selected.size} sesi berhasil dihapus.`)
+      setNotice(
+        failures.length
+          ? failures[0]
+          : `${selected.size} sesi berhasil dihapus.`,
+      )
     } catch (error) {
       setNotice(error.message)
-
-      api("/meals", { method: "GET" })
-        .then(setMeals)
-        .catch((refreshError) => setNotice(refreshError.message))
     } finally {
       setActionBusy(false)
     }
@@ -5763,7 +5527,6 @@ function MealHistory({ navigate }) {
             <Plus className="size-4" /> Catat makanan
           </Button>
         </div>
-        {notice && <NoticeAlert className="mb-4" message={notice} />}
         <section
           aria-busy={loading || actionBusy}
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl"
@@ -5913,12 +5676,7 @@ function MealHistory({ navigate }) {
                           </span>
                           <button
                             className="min-w-0 text-left"
-                            onClick={() =>
-                              session.scan_session_id &&
-                              navigate(
-                                `/scanner/summary/${session.scan_session_id}`,
-                              )
-                            }
+                            onClick={() => openSummary(session)}
                             type="button"
                           >
                             <p className="font-semibold text-slate-800 hover:text-sky-700">
@@ -6119,10 +5877,7 @@ function MealHistory({ navigate }) {
                   <div className="min-w-0 flex-1">
                     <button
                       className="min-w-0 text-left"
-                      onClick={() =>
-                        session.scan_session_id &&
-                        navigate(`/scanner/summary/${session.scan_session_id}`)
-                      }
+                      onClick={() => openSummary(session)}
                       type="button"
                     >
                       <h3 className="truncate text-left text-sm font-semibold text-slate-800 hover:text-sky-700">
@@ -6371,6 +6126,7 @@ function MealHistory({ navigate }) {
             </section>
           </div>
         )}
+        <NoticeToast message={notice} onClose={() => setNotice("")} />
       </main>
     </AppShell>
   )
@@ -6488,7 +6244,7 @@ function ResetPassword() {
         >
           Simpan kata sandi
         </Button>
-        {notice && <NoticeAlert className="mt-4" message={notice} />}
+        <NoticeToast message={notice} onClose={() => setNotice("")} />
       </form>
     </main>
   )
