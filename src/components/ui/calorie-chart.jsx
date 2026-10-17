@@ -151,7 +151,7 @@ export default function CalorieChart({ targets = {} }) {
         className="calorie-chart-scroll mt-5 w-full overflow-x-auto pb-3"
       >
         <div
-          className={`h-96 ${period === "month" ? "w-[200%]" : "w-full"}`}
+          className={`h-64 sm:h-80 lg:h-96 ${period === "month" ? "w-[200%] sm:w-full" : "w-full"}`}
           style={{
             "--color-nutrition": metric.color,
           }}
@@ -203,7 +203,7 @@ export default function CalorieChart({ targets = {} }) {
                 axisLine={false}
                 tickMargin={10}
                 fontSize={11}
-                interval={0}
+                minTickGap={14}
               />
               <YAxis
                 allowDecimals={false}

@@ -1038,8 +1038,8 @@ function Auth({ navigate }) {
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sky-50 px-5 py-5 sm:px-10 sm:py-6 max-lg:h-dvh max-lg:min-h-0 max-lg:!py-3 lg:bg-white">
         <AuthGridBackground className="lg:hidden" />
         <div className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100 bg-white/90 p-4 backdrop-blur sm:p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-          <div className="flex items-center justify-between lg:hidden">
-            <button onClick={() => navigate("landing")}>
+          <div className="flex items-center justify-between lg:justify-end">
+            <button className="lg:hidden" onClick={() => navigate("landing")}>
               <Brand compact />
             </button>
             <button
@@ -3142,12 +3142,12 @@ function AppShell({
             "transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         )}
       >
-        {!camera && active !== "chat" && (
+        {!camera && (
           <header
             className={cn(
               "sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8",
 
-              ["dashboard", "meals", "scanner"].includes(active)
+              ["dashboard", "meals", "scanner", "chat"].includes(active)
                 ? "h-20"
                 : "h-16",
             )}
@@ -4753,7 +4753,7 @@ function Chat({ navigate, routeConversationId }) {
   return (
     <AppShell active="chat" navigate={navigate}>
       <main
-        className="font-poppins relative h-dvh overflow-hidden bg-white text-slate-900"
+        className="font-poppins relative h-[calc(100dvh-5rem)] overflow-hidden bg-white text-slate-900"
         data-lenis-prevent
       >
         <div
@@ -5011,7 +5011,7 @@ function Chat({ navigate, routeConversationId }) {
               data-lenis-prevent
               ref={messagesPanel}
             >
-              <div className="mx-auto flex min-h-full w-[90%] max-w-none flex-col justify-end">
+              <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-end">
                 {!messages.length && (
                   <div className="m-auto max-w-lg px-4 text-center">
                     <div className="mx-auto mb-5 grid size-14 place-items-center rounded-[1.2rem] border border-sky-100 bg-gradient-to-br from-sky-50 to-indigo-50 text-sky-600 shadow-[0_12px_40px_-20px_rgba(56,189,248,.35)]">

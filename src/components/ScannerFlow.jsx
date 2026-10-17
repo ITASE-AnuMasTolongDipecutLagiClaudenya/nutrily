@@ -325,28 +325,27 @@ function CameraView({ mode, onCapture, onClose }) {
       ) : null}
       {!stream && !scanning && <div className="absolute inset-0 bg-black" />}
       {!scanning && (
-        <footer className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center bg-slate-950/55 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <footer className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12">
           <NoticeToast
             message={notice}
             onClose={() => setNotice("")}
             variant="destructive"
           />
-          <div className="flex shrink-0 items-center gap-8">
-            <button
-              aria-label="Unggah foto"
-              className="grid size-12 place-items-center rounded-full bg-white/15"
-              onClick={() => fileRef.current?.click()}
-            >
-              <Images className="size-5" />
-            </button>
-            <button
-              aria-label="Ambil foto"
-              className="grid size-14 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-              onClick={capture}
-            >
-              <Camera className="size-7" />
-            </button>
-          </div>
+          <button
+            aria-label="Unggah foto"
+            className="grid size-14 justify-self-start place-items-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Images className="size-6" />
+          </button>
+          <button
+            aria-label="Ambil foto"
+            className="grid size-20 justify-self-center place-items-center rounded-full bg-white text-slate-900 shadow-lg ring-4 ring-white/30 transition hover:scale-105 active:scale-95"
+            onClick={capture}
+          >
+            <Camera className="size-9" />
+          </button>
+          <span aria-hidden="true" />
           <input
             ref={fileRef}
             accept="image/jpeg,image/png"
@@ -363,7 +362,7 @@ function CameraView({ mode, onCapture, onClose }) {
 
 function ScannerLanding({ navigate, start }) {
   return (
-    <main className="mx-auto max-w-5xl px-5 pb-28 pt-8 sm:px-8 lg:pb-10">
+    <main className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-5xl flex-col px-5 pb-28 pt-8 sm:px-8 lg:pb-10">
       <p className="text-sm font-semibold text-sky-600">Pemindai Nutrily</p>
       <h1 className="mt-2 max-w-2xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
         Pahami makananmu dari kamera
@@ -371,7 +370,7 @@ function ScannerLanding({ navigate, start }) {
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
         Pilih yang ingin dipindai. Periksa hasil AI sebelum menyimpan ringkasan.
       </p>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 grid flex-1 auto-rows-fr gap-4 lg:flex-none lg:auto-rows-auto md:grid-cols-2">
         {["receipt", "label"].map((mode) => {
           const Icon = copy[mode].icon
 
@@ -1060,7 +1059,7 @@ function ScannerFlow({ navigate, onSessionName }) {
             </div>
             <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
           </header>
-          <main className="mx-auto w-[92%] px-5 pb-10 pt-8 sm:px-8">
+          <main className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 sm:px-8 sm:pt-8">
             {/** Keep confirmed items immutable after a partial save so retry cannot duplicate meals. */}
             {(() => {
               const locked = (session.savedCount || 0) > 0
@@ -1070,7 +1069,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                   <p className="text-sm font-semibold text-sky-600">
                     {copy[mode].title}
                   </p>
-                  <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                  <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
                     Periksa hasil pindai
                   </h1>
                   <p className="mt-2 text-sm text-slate-500">
@@ -1112,7 +1111,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                               <Trash2 className="size-4" />
                             </button>
                           </div>
-                          <div className="mt-2 flex items-center gap-3">
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                             <label className="flex items-center gap-2 text-xs text-slate-500">
                               <span>Jumlah</span>
                               <input
@@ -1247,7 +1246,7 @@ function ScannerFlow({ navigate, onSessionName }) {
       )}
 
       {isSummary && session?.sessionId === summaryId && (
-        <main className="font-poppins mx-auto w-[92%] px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
+        <main className="font-poppins mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-8 sm:pt-7 lg:pb-10">
           <div className="mb-7">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Ringkasan gizimu

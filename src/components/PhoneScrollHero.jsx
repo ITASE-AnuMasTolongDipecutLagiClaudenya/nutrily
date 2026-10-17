@@ -92,7 +92,7 @@ export default function PhoneScrollHero({
       ref={sectionRef}
       aria-label="Hero"
       className={cn(
-        "relative flex h-[60rem] w-full items-center justify-center overflow-hidden bg-white p-2 md:h-[80rem] md:p-8",
+        "relative flex h-[80rem] w-full items-center justify-center overflow-hidden bg-white p-2 md:p-8",
         className,
       )}
     >
