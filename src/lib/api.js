@@ -38,8 +38,10 @@ export async function api(path, options = {}) {
     },
   })
   const result = await response.json().catch(() => ({}))
-  if (!response.ok)
+  if (!response.ok) {
+    if (response.status === 401) await supabase.auth.signOut()
     throw new Error(result.error || `API gagal (${response.status}).`)
+  }
   if (feature) {
     window.dispatchEvent(
       new CustomEvent("nutrily:feature-usage", {

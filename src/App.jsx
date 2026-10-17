@@ -2982,6 +2982,23 @@ function AppShell({
 }) {
   const { user } = useAuth()
 
+  const wibHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    }).format(new Date()),
+  )
+
+  const greeting =
+    wibHour < 11
+      ? "pagi"
+      : wibHour < 15
+        ? "siang"
+        : wibHour < 19
+          ? "sore"
+          : "malam"
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const [sidebarHovered, setSidebarHovered] = useState(false)
@@ -3197,10 +3214,12 @@ function AppShell({
                       day: "numeric",
 
                       month: "long",
+
+                      timeZone: "Asia/Jakarta",
                     })}
                   </p>
                   <p className="mt-0.5 font-bold text-slate-800">
-                    Selamat pagi,{" "}
+                    Selamat {greeting},{" "}
                     {user?.user_metadata?.full_name?.split(" ")[0] ||
                       user?.email?.split("@")[0] ||
                       "teman"}
