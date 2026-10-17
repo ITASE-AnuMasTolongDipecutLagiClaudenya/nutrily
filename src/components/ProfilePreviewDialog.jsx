@@ -1,19 +1,15 @@
 import { useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
+import { useScrollLock } from "../lib/use-scroll-lock"
 
 export default function ProfilePreviewDialog({ avatar, name, onClose }) {
+  useScrollLock()
+
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    window.__lenis?.stop()
     const closeOnEscape = (event) => event.key === "Escape" && onClose()
     window.addEventListener("keydown", closeOnEscape)
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape)
-      document.body.style.overflow = previousOverflow
-      window.__lenis?.start()
-    }
+    return () => window.removeEventListener("keydown", closeOnEscape)
   }, [onClose])
 
   const initials = (name || "N").trim().slice(0, 1).toUpperCase()

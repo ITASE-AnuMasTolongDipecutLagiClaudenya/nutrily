@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Check, Move, X } from "lucide-react"
 import { getAvatarCropRect } from "../lib/avatar-crop"
+import { useScrollLock } from "../lib/use-scroll-lock"
 
 const SIZE = 280
 
@@ -11,6 +12,8 @@ export default function AvatarCropper({ file, onCancel, onCrop }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const drag = useRef(null)
   const imageRef = useRef(null)
+
+  useScrollLock()
 
   useEffect(() => {
     const url = URL.createObjectURL(file)

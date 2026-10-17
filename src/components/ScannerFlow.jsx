@@ -8,6 +8,8 @@ import {
   Copy,
   Images,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
   Plus,
   ReceiptText,
   ScanLine,
@@ -19,11 +21,20 @@ import {
 import { useLocation } from "react-router-dom"
 
 import { api } from "../lib/api"
-import NoticeAlert from "./ui/notice-alert"
+
+import NoticeToast from "./ui/notice-toast"
+
+import ConfirmDialog from "./ui/confirm-dialog"
+
+import Brand from "./brand"
+
+import ScrollProgressBar from "./ui/scroll-progress-bar"
 
 import Markdown from "./ui/markdown"
 
 import { useAuth } from "../lib/AuthProvider"
+
+import { useScrollLock } from "../lib/use-scroll-lock"
 
 const copy = {
   receipt: {
@@ -84,13 +95,18 @@ async function optimizeScanImage(image) {
   if (!globalThis.createImageBitmap) return image
 
   let bitmap
+
   try {
     bitmap = await createImageBitmap(image)
+
     const maxDimension = 2400
+
     let scale = Math.min(
       1,
+
       maxDimension / Math.max(bitmap.width, bitmap.height),
     )
+
     if (
       scale === 1 &&
       image.type === "image/jpeg" &&
@@ -99,24 +115,38 @@ async function optimizeScanImage(image) {
       return image
 
     const canvas = document.createElement("canvas")
+
     const context = canvas.getContext("2d")
+
     if (!context) return image
+
     let best = image
+
     for (let attempt = 0; attempt < 4; attempt += 1) {
       canvas.width = Math.round(bitmap.width * scale)
+
       canvas.height = Math.round(bitmap.height * scale)
+
       context.fillStyle = "#fff"
+
       context.fillRect(0, 0, canvas.width, canvas.height)
+
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", 0.82 - attempt * 0.07),
       )
+
       if (!blob) return image
+
       if (blob.size < best.size)
         best = new File([blob], "nutrily-scan.jpg", { type: "image/jpeg" })
+
       if (best.size <= 2 * 1024 * 1024) return best
+
       scale *= 0.85
     }
+
     return best
   } catch {
     return image
@@ -137,6 +167,8 @@ function CameraView({ mode, onCapture, onClose }) {
   const [scanning, setScanning] = useState(false)
 
   const [previewURL, setPreviewURL] = useState("")
+
+  useScrollLock()
 
   useEffect(
     () => () => {
@@ -294,13 +326,11 @@ function CameraView({ mode, onCapture, onClose }) {
       {!stream && !scanning && <div className="absolute inset-0 bg-black" />}
       {!scanning && (
         <footer className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center bg-slate-950/55 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {notice && (
-            <NoticeAlert
-              className="absolute bottom-full left-4 right-4 mb-3 bg-white/95 text-left sm:left-auto sm:right-5 sm:max-w-md"
-              message={notice}
-              variant="destructive"
-            />
-          )}
+          <NoticeToast
+            message={notice}
+            onClose={() => setNotice("")}
+            variant="destructive"
+          />
           <div className="flex shrink-0 items-center gap-8">
             <button
               aria-label="Unggah foto"
@@ -392,6 +422,10 @@ function ScannerFlow({ navigate, onSessionName }) {
 
   const [sessionNameDialog, setSessionNameDialog] = useState(false)
 
+  const [exitDialog, setExitDialog] = useState(false)
+
+  const [expandedChat, setExpandedChat] = useState(false)
+
   const [notice, setNotice] = useState("")
 
   const [messages, setMessages] = useState([])
@@ -404,11 +438,25 @@ function ScannerFlow({ navigate, onSessionName }) {
 
   const chatScrollRef = useRef(null)
 
+  useScrollLock(sessionNameDialog || expandedChat)
+
   useEffect(() => {
     const node = chatScrollRef.current
 
     if (node) node.scrollTop = node.scrollHeight
   }, [busy, messages])
+
+  useEffect(() => {
+    if (!expandedChat) return
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setExpandedChat(false)
+    }
+
+    window.addEventListener("keydown", closeOnEscape)
+
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [expandedChat])
 
   const modeMatch = pathname.match(/^\/scanner\/(receipt|label)(\/confirm)?$/)
 
@@ -482,11 +530,13 @@ function ScannerFlow({ navigate, onSessionName }) {
     if (!sessionReady || !isSummary || !summaryId) return
 
     const navigationSession = locationState?.scanSession
+
     if (
       navigationSession?.sessionId === summaryId &&
       session?.sessionId !== summaryId
     ) {
       saveSession(navigationSession)
+
       return
     }
 
@@ -507,33 +557,53 @@ function ScannerFlow({ navigate, onSessionName }) {
 
         const restored = {
           sessionId: summaryId,
+
           mode: items[0].scan_mode || "label",
+
           sessionName:
             items.find((item) => item.scan_session_name)?.scan_session_name ||
             "",
+
           items: items.map(
             ({
               name,
+
               serving_size,
+
               calories,
+
               protein_g,
+
               carbs_g,
+
               fat_g,
+
               sugar_g,
+
               sodium_mg,
+
               nutrition_sources,
             }) => ({
               name,
+
               serving_size,
+
               calories,
+
               protein_g,
+
               carbs_g,
+
               fat_g,
+
               sugar_g,
+
               sodium_mg,
+
               sources: nutrition_sources || [],
             }),
           ),
+
           savedCount: items.length,
 
           advice: "",
@@ -549,10 +619,15 @@ function ScannerFlow({ navigate, onSessionName }) {
     }
   }, [
     isSummary,
+
     locationState,
+
     navigate,
+
     session?.sessionId,
+
     sessionReady,
+
     summaryId,
   ])
 
@@ -567,13 +642,21 @@ function ScannerFlow({ navigate, onSessionName }) {
       navigate("/scanner", { replace: true })
   }, [
     isConfirm,
+
     isSummary,
+
     mode,
+
     modeMatch,
+
     navigate,
+
     pathname,
+
     session?.items?.length,
+
     session?.mode,
+
     sessionReady,
   ])
 
@@ -692,39 +775,55 @@ function ScannerFlow({ navigate, onSessionName }) {
 
   const requestConfirmation = async () => {
     const current = sessionRef.current
+
     if (!current?.items?.length || busy || preparingName) return
+
     if (current.sessionName) return confirmItems()
 
     setPreparingName(true)
+
     let sessionNumber = 1
+
     try {
       const meals = await api("/meals", { method: "GET" })
+
       const existingSessions = new Set(
         meals
+
           .filter(
             (meal) => meal.scan_mode === current.mode && meal.scan_session_id,
           )
+
           .map((meal) => meal.scan_session_id),
       )
+
       sessionNumber += existingSessions.size
     } catch {
       // Keep naming available if history cannot be loaded; saving reports API errors.
     }
 
     const typeName = current.mode === "receipt" ? "Scan struk" : "Scan label"
+
     setSessionNameDraft(current.sessionName || `${typeName} ${sessionNumber}`)
+
     setSessionNameDialog(true)
+
     setPreparingName(false)
   }
 
   const submitSessionName = (event) => {
     event.preventDefault()
+
     const current = sessionRef.current
+
     const sessionName = sessionNameDraft.trim()
+
     if (!current || !sessionName) return
 
     saveSession({ ...current, sessionName })
+
     setSessionNameDialog(false)
+
     confirmItems()
   }
 
@@ -745,13 +844,18 @@ function ScannerFlow({ navigate, onSessionName }) {
       saveSession(saved)
 
       // Nutrition is resolved after the user confirms the parsed items:
+
       // catalog first, then cache, then a sourced AI lookup.
+
       const enriched = await api("/scan/nutrition", {
         method: "POST",
+
         body: JSON.stringify({ mode: saved.mode, items: saved.items }),
       })
+
       if (Array.isArray(enriched.items) && enriched.items.length) {
         saved = { ...saved, items: enriched.items }
+
         saveSession(saved)
       }
 
@@ -798,9 +902,13 @@ function ScannerFlow({ navigate, onSessionName }) {
             ...nutrition,
 
             ...(item.serving_size ? { serving_size: item.serving_size } : {}),
+
             nutrition_sources: item.sources || [],
+
             scan_session_id: id,
+
             scan_mode: saved.mode,
+
             scan_session_name: saved.sessionName,
           }),
         })
@@ -919,7 +1027,13 @@ function ScannerFlow({ navigate, onSessionName }) {
       <CameraView
         mode={mode}
         onCapture={scanImage}
-        onClose={() => navigate("/scanner")}
+        onClose={() =>
+          navigate(
+            locationState?.fromConfirm
+              ? `/scanner/${mode}/confirm`
+              : "/scanner",
+          )
+        }
       />
     )
 
@@ -930,128 +1044,164 @@ function ScannerFlow({ navigate, onSessionName }) {
       )}
 
       {isConfirm && session && (
-        <main className="mx-auto max-w-5xl px-5 pb-10 pt-8 sm:px-8">
-          {/** Keep confirmed items immutable after a partial save so retry cannot duplicate meals. */}
-          {(() => {
-            const locked = (session.savedCount || 0) > 0
+        <>
+          <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white shadow-[0_6px_24px_-20px_rgba(15,23,42,.45)] backdrop-blur-xl">
+            <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between px-4 py-3.5 sm:min-h-[86px] sm:px-6 lg:px-8">
+              <Brand />
+              <button
+                aria-label="Kembali ke pemindai"
+                className="grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-all duration-300 hover:scale-[1.03] hover:bg-sky-600 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200"
+                onClick={() => setExitDialog(true)}
+                title="Kembali ke pemindai"
+                type="button"
+              >
+                <ArrowLeft className="size-4.5" />
+              </button>
+            </div>
+            <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
+          </header>
+          <main className="mx-auto w-[92%] px-5 pb-10 pt-8 sm:px-8">
+            {/** Keep confirmed items immutable after a partial save so retry cannot duplicate meals. */}
+            {(() => {
+              const locked = (session.savedCount || 0) > 0
 
-            return (
-              <>
-                <p className="text-sm font-semibold text-sky-600">
-                  {copy[mode].title}
-                </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                  Periksa hasil pindai
-                </h1>
-                <p className="mt-2 text-sm text-slate-500">
-                  {locked
-                    ? "Penyimpanan sempat terhenti. Lanjutkan untuk menyelesaikan sesi."
-                    : "Ubah nama, hapus hasil keliru, atau pindai lagi untuk menambahkan item."}
-                </p>
-                {notice && (
-                  <NoticeAlert
-                    className="mt-5"
+              return (
+                <>
+                  <p className="text-sm font-semibold text-sky-600">
+                    {copy[mode].title}
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                    Periksa hasil pindai
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {locked
+                      ? "Penyimpanan sempat terhenti. Lanjutkan untuk menyelesaikan sesi."
+                      : "Ubah nama, hapus hasil keliru, atau pindai lagi untuk menambahkan item."}
+                  </p>
+                  <NoticeToast
                     message={notice}
+                    onClose={() => setNotice("")}
                     variant="destructive"
                   />
-                )}
-                <section className="mt-6 rounded-2xl border border-slate-100 bg-white px-4 sm:px-6">
-                  <div className="divide-y divide-slate-100">
-                    {session.items.map((item, index) => (
-                      <article
-                        className="border-b border-slate-100 bg-white px-1 py-5 last:border-0"
-                        key={`${item.name}-${index}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <label className="min-w-0 flex-1">
-                            <span className="sr-only">Nama item</span>
-                            <input
-                              className="h-10 w-full border-0 border-b border-slate-200 bg-transparent px-0 text-base font-semibold outline-none focus:border-sky-500 focus:ring-0 disabled:text-slate-500"
+                  <section className="mt-6 rounded-2xl border border-slate-100 bg-white px-4 sm:px-6">
+                    <div className="divide-y divide-slate-100">
+                      {session.items.map((item, index) => (
+                        <article
+                          className="border-b border-slate-100 bg-white px-1 py-5 last:border-0"
+                          key={`${item.name}-${index}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <label className="min-w-0 flex-1">
+                              <span className="sr-only">Nama item</span>
+                              <input
+                                className="h-10 w-full border-0 border-b border-slate-200 bg-transparent px-0 text-base font-semibold outline-none focus:border-sky-500 focus:ring-0 disabled:text-slate-500"
+                                disabled={locked}
+                                maxLength={160}
+                                onChange={(event) =>
+                                  patchItem(index, { name: event.target.value })
+                                }
+                                value={item.name || ""}
+                              />
+                            </label>
+                            <button
+                              aria-label={`Hapus ${item.name || "item"}`}
+                              className="grid size-10 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
                               disabled={locked}
-                              maxLength={160}
-                              onChange={(event) =>
-                                patchItem(index, { name: event.target.value })
-                              }
-                              value={item.name || ""}
-                            />
-                          </label>
-                          <button
-                            aria-label={`Hapus ${item.name || "item"}`}
-                            className="grid size-10 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
-                            disabled={locked}
-                            onClick={() => removeItem(index)}
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
-                        <div className="mt-2 flex items-center gap-3">
-                          <label className="flex items-center gap-2 text-xs text-slate-500">
-                            <span>Jumlah</span>
-                            <input
-                              className="h-8 w-16 rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:text-slate-500"
-                              disabled={locked}
-                              min={1}
-                              max={99}
-                              onChange={(event) =>
-                                patchItem(index, {
-                                  quantity: Math.max(
-                                    1,
-                                    Number(event.target.value) || 1,
-                                  ),
-                                })
-                              }
-                              type="number"
-                              value={Number(item.quantity) || 1}
-                            />
-                          </label>
-                          {item.raw_name && (
-                            <span className="min-w-0 truncate text-xs text-slate-400">
-                              Tertulis: {item.raw_name}
-                            </span>
+                              onClick={() => removeItem(index)}
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center gap-3">
+                            <label className="flex items-center gap-2 text-xs text-slate-500">
+                              <span>Jumlah</span>
+                              <input
+                                className="h-8 w-16 rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:text-slate-500"
+                                disabled={locked}
+                                min={1}
+                                max={99}
+                                onChange={(event) =>
+                                  patchItem(index, {
+                                    quantity: Math.max(
+                                      1,
+
+                                      Number(event.target.value) || 1,
+                                    ),
+                                  })
+                                }
+                                type="number"
+                                value={Number(item.quantity) || 1}
+                              />
+                            </label>
+                            {item.raw_name && (
+                              <span className="min-w-0 truncate text-xs text-slate-400">
+                                Tertulis: {item.raw_name}
+                              </span>
+                            )}
+                          </div>
+                          {item.name_confidence === "low" && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              Nama produk kurang pasti. Mohon dicek.
+                            </p>
                           )}
-                        </div>
-                        {item.name_confidence === "low" && (
-                          <p className="mt-1 text-xs text-amber-700">
-                            Nama produk kurang pasti. Mohon dicek.
-                          </p>
-                        )}
-                      </article>
-                    ))}
-                    {!session.items.length && (
-                      <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-                        Semua item dihapus. Pindai lagi untuk menambahkan item.
-                      </p>
-                    )}
+                        </article>
+                      ))}
+                      {!session.items.length && (
+                        <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+                          Semua item dihapus. Pindai lagi untuk menambahkan
+                          item.
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <Button
+                      disabled={locked}
+                      variant="secondary"
+                      onClick={() =>
+                        navigate(`/scanner/${mode}`, {
+                          state: { fromConfirm: true },
+                        })
+                      }
+                    >
+                      <Plus className="size-4" /> Pindai lagi
+                    </Button>
+                    <Button
+                      disabled={!session.items.length || busy || preparingName}
+                      onClick={requestConfirmation}
+                    >
+                      {busy ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
+                      {busy
+                        ? "Menyimpan…"
+                        : preparingName
+                          ? "Menyiapkan…"
+                          : "Konfirmasi"}
+                    </Button>
                   </div>
-                </section>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <Button
-                    disabled={locked}
-                    variant="secondary"
-                    onClick={() => navigate(`/scanner/${mode}`)}
-                  >
-                    <Plus className="size-4" /> Pindai lagi
-                  </Button>
-                  <Button
-                    disabled={!session.items.length || busy || preparingName}
-                    onClick={requestConfirmation}
-                  >
-                    {busy ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Check className="size-4" />
-                    )}
-                    {busy
-                      ? "Menyimpan…"
-                      : preparingName
-                        ? "Menyiapkan…"
-                        : "Konfirmasi"}
-                  </Button>
-                </div>
-              </>
-            )
-          })()}
-        </main>
+                </>
+              )
+            })()}
+          </main>
+        </>
+      )}
+
+      {exitDialog && (
+        <ConfirmDialog
+          cancelLabel="Batal"
+          confirmLabel="Kembali"
+          description="Item yang belum dikonfirmasi tidak akan tersimpan di ringkasan."
+          onCancel={() => setExitDialog(false)}
+          onConfirm={() => {
+            setExitDialog(false)
+
+            navigate("/scanner")
+          }}
+          title="Kembali ke pemindai?"
+        />
       )}
 
       {sessionNameDialog && (
@@ -1132,10 +1282,15 @@ function ScannerFlow({ navigate, onSessionName }) {
                         <span className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-6">
                           {[
                             ["Kalori", item.calories, "kkal"],
+
                             ["Protein", item.protein_g, "g"],
+
                             ["Karbo", item.carbs_g, "g"],
+
                             ["Lemak", item.fat_g, "g"],
+
                             ["Gula", item.sugar_g, "g"],
+
                             ["Natrium", item.sodium_mg, "mg"],
                           ].map(([label, value, unit]) => (
                             <span className="flex flex-col" key={label}>
@@ -1166,11 +1321,12 @@ function ScannerFlow({ navigate, onSessionName }) {
                             )}
                           </span>
                         )}
-                        {!item.sources?.length && item.nutrition_source === "estimate_unsourced" && (
-                          <span className="mt-1 block text-[11px] text-amber-700">
-                            Estimasi AI tanpa sumber; mohon verifikasi.
-                          </span>
-                        )}
+                        {!item.sources?.length &&
+                          item.nutrition_source === "estimate_unsourced" && (
+                            <span className="mt-1 block text-[11px] text-amber-700">
+                              Estimasi AI tanpa sumber; mohon verifikasi.
+                            </span>
+                          )}
                       </span>
                       <span className="shrink-0 text-sm font-semibold text-slate-800">
                         {item.calories == null ? "—" : `${item.calories} kkal`}
@@ -1222,6 +1378,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                       const total = known.length
                         ? known.reduce(
                             (sum, item) => sum + Number(item[key]),
+
                             0,
                           )
                         : null
@@ -1284,18 +1441,51 @@ function ScannerFlow({ navigate, onSessionName }) {
                 </section>
               </div>
             </div>
-            <section className="rounded-3xl border border-slate-100 bg-white shadow-sm lg:col-span-2">
-              <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-                <h2 className="text-lg font-bold text-slate-900">
-                  Tanya tentang hasil ini
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Konsultasi lanjutan khusus gizi dan kesehatan.
-                </p>
+            <section
+              className={`rounded-3xl border border-slate-100 bg-white shadow-sm lg:col-span-2 ${
+                expandedChat
+                  ? "fixed inset-0 z-[70] flex flex-col rounded-none border-0"
+                  : ""
+              }`}
+              data-lenis-prevent
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Tanya tentang hasil ini
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Konsultasi lanjutan khusus gizi dan kesehatan.
+                  </p>
+                </div>
+                <button
+                  aria-label={
+                    expandedChat
+                      ? "Perkecil konsultasi"
+                      : "Perbesar konsultasi layar penuh"
+                  }
+                  className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-sky-600"
+                  onClick={() => setExpandedChat((value) => !value)}
+                  title={
+                    expandedChat
+                      ? "Perkecil konsultasi"
+                      : "Perbesar konsultasi layar penuh"
+                  }
+                  type="button"
+                >
+                  {expandedChat ? (
+                    <Minimize2 className="size-4" />
+                  ) : (
+                    <Maximize2 className="size-4" />
+                  )}
+                </button>
               </div>
               <div
                 aria-live="polite"
-                className="max-h-80 space-y-4 overflow-y-auto bg-slate-50 px-5 py-5 sm:px-6"
+                className={`space-y-4 overflow-y-auto bg-slate-50 px-5 py-5 sm:px-6 ${
+                  expandedChat ? "min-h-0 flex-1" : "max-h-96"
+                }`}
+                data-lenis-prevent
                 ref={chatScrollRef}
               >
                 {!messages.length && (
@@ -1334,13 +1524,11 @@ function ScannerFlow({ navigate, onSessionName }) {
                   </div>
                 )}
               </div>
-              {notice && (
-                <NoticeAlert
-                  className="mt-4"
-                  message={notice}
-                  variant="destructive"
-                />
-              )}
+              <NoticeToast
+                message={notice}
+                onClose={() => setNotice("")}
+                variant="destructive"
+              />
               <form
                 className="flex gap-2 border-t border-slate-100 p-4 sm:p-5"
                 onSubmit={ask}

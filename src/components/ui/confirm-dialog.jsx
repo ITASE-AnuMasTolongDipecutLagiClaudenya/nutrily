@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from "react"
 import { createPortal } from "react-dom"
+import { useScrollLock } from "../../lib/use-scroll-lock"
 
 export default function ConfirmDialog({
   title,
@@ -13,6 +14,8 @@ export default function ConfirmDialog({
   const titleId = useId()
   const descriptionId = useId()
   const cancelButton = useRef(null)
+
+  useScrollLock()
 
   useEffect(() => {
     cancelButton.current?.focus()

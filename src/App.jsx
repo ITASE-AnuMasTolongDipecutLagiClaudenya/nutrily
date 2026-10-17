@@ -80,6 +80,8 @@ import {
 
 import { supabase } from "./lib/supabase"
 
+import { useScrollLock } from "./lib/use-scroll-lock"
+
 import PhoneScrollHero from "./components/PhoneScrollHero"
 
 import PhoneCarouselSection from "./components/PhoneCarouselSection"
@@ -118,7 +120,13 @@ import ProfilePreviewDialog from "./components/ProfilePreviewDialog"
 
 import NoticeAlert from "./components/ui/notice-alert"
 
+import NoticeToast from "./components/ui/notice-toast"
+
 import ConfirmDialog from "./components/ui/confirm-dialog"
+
+import Brand from "./components/brand"
+
+import ScrollProgressBar from "./components/ui/scroll-progress-bar"
 
 const cn = (...classes) => classes.filter(Boolean).join(" ")
 
@@ -206,92 +214,9 @@ function HeaderBackButton({ label, onClick, disabled = false }) {
   )
 }
 
-function ScrollProgressBar() {
-  const progressRef = useRef(null)
-
-  useEffect(() => {
-    let frame = 0
-
-    const updateProgress = () => {
-      cancelAnimationFrame(frame)
-
-      frame = requestAnimationFrame(() => {
-        const root = document.documentElement
-
-        const scrollHeight = Math.max(
-          root.scrollHeight,
-
-          document.body.scrollHeight,
-        )
-
-        const viewportHeight = root.clientHeight
-
-        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
-
-        const scrollTop = Math.max(
-          window.scrollY,
-
-          window.__lenis?.animatedScroll || 0,
-        )
-
-        const progress =
-          scrollTop + viewportHeight >= scrollHeight - 2
-            ? 1
-            : maxScroll > 0
-              ? scrollTop / maxScroll
-              : 0
-
-        const percentage = Math.min(1, Math.max(0, progress)) * 100
-
-        const bar = progressRef.current
-
-        if (!bar) return
-
-        bar.style.width = `${percentage}%`
-
-        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
-      })
-    }
-
-    updateProgress()
-
-    window.addEventListener("scroll", updateProgress, { passive: true })
-
-    window.addEventListener("resize", updateProgress)
-
-    const observer = new ResizeObserver(updateProgress)
-
-    observer.observe(document.documentElement)
-
-    observer.observe(document.body)
-
-    return () => {
-      cancelAnimationFrame(frame)
-
-      window.removeEventListener("scroll", updateProgress)
-
-      window.removeEventListener("resize", updateProgress)
-
-      observer.disconnect()
-    }
-  }, [])
-
-  return (
-    <div className="absolute inset-x-0 bottom-0 hidden h-[5px] overflow-hidden bg-sky-100/70 max-lg:block">
-      <div
-        aria-label="Progres scroll halaman"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={0}
-        className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
-        ref={progressRef}
-        role="progressbar"
-      />
-    </div>
-  )
-}
-
 function UnsavedChangesDialog({ onCancel, onDiscard }) {
+  useScrollLock()
+
   return (
     <div
       className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
@@ -331,31 +256,6 @@ function UnsavedChangesDialog({ onCancel, onDiscard }) {
           </button>
         </div>
       </section>
-    </div>
-  )
-}
-
-function Brand({ compact = false, light = false }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <img
-        alt={compact ? "Nutrily" : ""}
-        aria-hidden={!compact}
-        className="size-9 object-contain"
-        src={`${import.meta.env.BASE_URL}logo-biru.png`}
-      />
-      {!compact && (
-        <div
-          className={cn(
-            "text-2xl font-bold tracking-tight",
-
-            light ? "text-white" : "text-black",
-          )}
-        >
-          Nutri
-          <span className={light ? "text-sky-300" : "text-sky-500"}>ly</span>
-        </div>
-      )}
     </div>
   )
 }
@@ -1232,7 +1132,7 @@ function Auth({ navigate }) {
               </p>
             </div>
           </div>
-          {notice && <NoticeAlert className="mt-4" message={notice} />}
+          <NoticeToast message={notice} onClose={() => setNotice("")} />
         </div>
       </section>
     </main>
@@ -1341,6 +1241,8 @@ function Onboarding({ navigate, editMode = false }) {
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
 
   const [previewTargets, setPreviewTargets] = useState(null)
+
+  useScrollLock(confirmUpdate)
 
   const steps = ["Tentang kamu", "Profil tubuh", "Aktivitas harian", "Targetmu"]
 
@@ -1482,14 +1384,6 @@ function Onboarding({ navigate, editMode = false }) {
       window.clearTimeout(timer)
     }
   }, [age, gender, status, weight, height, activity, isGym, goal])
-
-  useEffect(() => {
-    if (!notice) return
-
-    const timer = window.setTimeout(() => setNotice(""), 4500)
-
-    return () => window.clearTimeout(timer)
-  }, [notice])
 
   const onboardingProfile = {
     age,
@@ -2130,15 +2024,7 @@ function Onboarding({ navigate, editMode = false }) {
           </p>
         </div>
       </div>
-      {notice && (
-        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <NoticeAlert
-            className="onboarding-toast pointer-events-auto"
-            message={notice}
-            onClose={() => setNotice("")}
-          />
-        </div>
-      )}
+      <NoticeToast message={notice} onClose={() => setNotice("")} />
       {confirmUpdate && (
         <div
           className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]"
@@ -2235,19 +2121,6 @@ function ProfilePage({ navigate }) {
   useEffect(() => {
     if (location.state?.notice) setNotice(location.state.notice)
   }, [location.state?.notice])
-
-  useEffect(() => {
-    if (!notice) return
-
-    const timer = window.setTimeout(() => {
-      setNotice("")
-
-      if (location.state?.notice)
-        navigate("/profile", { replace: true, state: null })
-    }, 4500)
-
-    return () => window.clearTimeout(timer)
-  }, [notice, location.state?.notice])
 
   useEffect(() => {
     let active = true
@@ -2411,19 +2284,15 @@ function ProfilePage({ navigate }) {
           </div>
         )}
       </div>
-      {notice && (
-        <div className="pointer-events-none fixed inset-x-4 top-20 z-[70] mx-auto max-w-xl sm:top-24">
-          <NoticeAlert
-            className="onboarding-toast pointer-events-auto"
-            message={notice}
-            onClose={() => {
-              setNotice("")
-              if (location.state?.notice)
-                navigate("/profile", { replace: true, state: null })
-            }}
-          />
-        </div>
-      )}
+      <NoticeToast
+        message={notice}
+        onClose={() => {
+          setNotice("")
+
+          if (location.state?.notice)
+            navigate("/profile", { replace: true, state: null })
+        }}
+      />
       {showProfilePreview && (
         <ProfilePreviewDialog
           avatar={avatarUrl}
@@ -2461,7 +2330,10 @@ function ProfileAccountPage({ navigate }) {
   const [showUnsavedChanges, setShowUnsavedChanges] = useState(false)
 
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
+
   const [deleteAvatarPending, setDeleteAvatarPending] = useState(false)
+
+  useScrollLock(showSaveConfirmation)
 
   const customAvatar = hasCustomAvatar(avatarUrl, originalAvatarUrl)
   const nameHasChanged = name.trim() !== initialName.trim()
@@ -2689,7 +2561,7 @@ function ProfileAccountPage({ navigate }) {
               </Button>
             </div>
           </form>
-          {notice && <NoticeAlert className="mt-4" message={notice} />}
+          <NoticeToast message={notice} onClose={() => setNotice("")} />
         </section>
       </div>
       {showUnsavedChanges && (
@@ -3129,74 +3001,6 @@ function AppShell({
     ["meals", "Riwayat", History],
   ]
 
-  const scrollProgressRef = useRef(null)
-
-  useEffect(() => {
-    let frame = 0
-
-    const updateProgress = () => {
-      cancelAnimationFrame(frame)
-
-      frame = requestAnimationFrame(() => {
-        const lenis = window.__lenis
-
-        const root = document.documentElement
-
-        const scrollHeight = Math.max(
-          root.scrollHeight,
-
-          document.body.scrollHeight,
-        )
-
-        const viewportHeight = root.clientHeight
-
-        const maxScroll = Math.max(0, scrollHeight - viewportHeight)
-
-        const scrollTop = Math.max(window.scrollY, lenis?.animatedScroll || 0)
-
-        const atBottom = scrollTop + viewportHeight >= scrollHeight - 2
-
-        const progress = atBottom
-          ? 1
-          : maxScroll > 0
-            ? scrollTop / maxScroll
-            : 0
-
-        const bar = scrollProgressRef.current
-
-        if (!bar) return
-
-        const percentage = Math.min(1, Math.max(0, progress)) * 100
-
-        bar.style.width = `${percentage}%`
-
-        bar.setAttribute("aria-valuenow", String(Math.round(percentage)))
-      })
-    }
-
-    updateProgress()
-
-    window.addEventListener("scroll", updateProgress, { passive: true })
-
-    window.addEventListener("resize", updateProgress)
-
-    const observer = new ResizeObserver(updateProgress)
-
-    observer.observe(document.documentElement)
-
-    observer.observe(document.body)
-
-    return () => {
-      cancelAnimationFrame(frame)
-
-      observer.disconnect()
-
-      window.removeEventListener("scroll", updateProgress)
-
-      window.removeEventListener("resize", updateProgress)
-    }
-  }, [])
-
   return (
     <div className="dashboard-shell min-h-screen bg-slate-50 text-slate-900">
       {!minimal && active !== "chat" && (
@@ -3422,17 +3226,7 @@ function AppShell({
                 />
               </>
             )}
-            <div className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70">
-              <div
-                aria-label="Progres scroll halaman"
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={0}
-                className="h-full w-0 bg-gradient-to-r from-sky-400 via-sky-500 to-blue-600 shadow-[0_0_10px_rgba(14,165,233,0.6)] transition-[width] duration-75 motion-reduce:transition-none"
-                ref={scrollProgressRef}
-                role="progressbar"
-              />
-            </div>
+            <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
           </header>
         )}
         {children}
@@ -3717,9 +3511,10 @@ function Dashboard({ navigate }) {
   return (
     <AppShell active="dashboard" navigate={navigate}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
-        {dashboardNotice && (
-          <NoticeAlert className="mb-5" message={dashboardNotice} />
-        )}
+        <NoticeToast
+          message={dashboardNotice}
+          onClose={() => setDashboardNotice("")}
+        />
         <div className="mb-7 md:flex md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold text-sky-600">
@@ -4629,6 +4424,10 @@ function Scanner({ navigate }) {
   const isCamera =
     pathname === "/scanner/receipt" || pathname === "/scanner/label"
 
+  const isConfirm =
+    pathname === "/scanner/receipt/confirm" ||
+    pathname === "/scanner/label/confirm"
+
   const isSummary = pathname.startsWith("/scanner/summary/")
 
   const [sessionName, setSessionName] = useState("")
@@ -4640,7 +4439,7 @@ function Scanner({ navigate }) {
       scannerBack={!isScannerHome && !isCamera}
       summaryNav={isSummary}
       summaryTitle={sessionName}
-      camera={isCamera}
+      camera={isCamera || isConfirm}
       navigate={navigate}
     >
       <ScannerFlow navigate={navigate} onSessionName={setSessionName} />
@@ -5305,12 +5104,7 @@ function Chat({ navigate, routeConversationId }) {
                 onSend={send}
                 sending={sending}
               />
-              {notice && (
-                <NoticeAlert
-                  className="mx-auto mt-2 max-w-3xl"
-                  message={notice}
-                />
-              )}
+              <NoticeToast message={notice} onClose={() => setNotice("")} />
             </div>
           </section>
         </div>
@@ -5651,6 +5445,8 @@ function MealHistory({ navigate }) {
 
     setNotice("")
 
+    const failures = []
+
     try {
       for (const sessionId of selected) {
         const session = sessions.find(({ id }) => id === sessionId)
@@ -5659,14 +5455,16 @@ function MealHistory({ navigate }) {
           ? `scan_session_id=${encodeURIComponent(session.scan_session_id)}`
           : `meal_id=${encodeURIComponent(sessionId.slice("single-".length))}`
 
-        await api(`/meals?${query}`, { method: "DELETE" })
+        try {
+          await api(`/meals?${query}`, { method: "DELETE" })
+        } catch (error) {
+          failures.push(error.message)
+        }
       }
 
-      setMeals((previous) =>
-        previous.filter(
-          (meal) => !selected.has(meal.scan_session_id || `single-${meal.id}`),
-        ),
-      )
+      const rows = await api("/meals", { method: "GET" })
+
+      setMeals(rows)
 
       setSelectedSessions([])
 
@@ -5678,13 +5476,13 @@ function MealHistory({ navigate }) {
 
       setCurrentPage(1)
 
-      setNotice(`${selected.size} sesi berhasil dihapus.`)
+      setNotice(
+        failures.length
+          ? failures[0]
+          : `${selected.size} sesi berhasil dihapus.`,
+      )
     } catch (error) {
       setNotice(error.message)
-
-      api("/meals", { method: "GET" })
-        .then(setMeals)
-        .catch((refreshError) => setNotice(refreshError.message))
     } finally {
       setActionBusy(false)
     }
@@ -5710,7 +5508,6 @@ function MealHistory({ navigate }) {
             <Plus className="size-4" /> Catat makanan
           </Button>
         </div>
-        {notice && <NoticeAlert className="mb-4" message={notice} />}
         <section
           aria-busy={loading || actionBusy}
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl"
@@ -6310,6 +6107,7 @@ function MealHistory({ navigate }) {
             </section>
           </div>
         )}
+        <NoticeToast message={notice} onClose={() => setNotice("")} />
       </main>
     </AppShell>
   )
@@ -6427,7 +6225,7 @@ function ResetPassword() {
         >
           Simpan kata sandi
         </Button>
-        {notice && <NoticeAlert className="mt-4" message={notice} />}
+        <NoticeToast message={notice} onClose={() => setNotice("")} />
       </form>
     </main>
   )
