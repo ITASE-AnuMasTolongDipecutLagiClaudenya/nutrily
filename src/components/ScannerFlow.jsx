@@ -744,6 +744,17 @@ function ScannerFlow({ navigate, onSessionName }) {
 
       saveSession(saved)
 
+      // Nutrition is resolved after the user confirms the parsed items:
+      // catalog first, then cache, then a sourced AI lookup.
+      const enriched = await api("/scan/nutrition", {
+        method: "POST",
+        body: JSON.stringify({ mode: saved.mode, items: saved.items }),
+      })
+      if (Array.isArray(enriched.items) && enriched.items.length) {
+        saved = { ...saved, items: enriched.items }
+        saveSession(saved)
+      }
+
       for (
         let index = saved.savedCount || 0;
         index < saved.items.length;
@@ -973,95 +984,35 @@ function ScannerFlow({ navigate, onSessionName }) {
                             <Trash2 className="size-4" />
                           </button>
                         </div>
-                        {item.raw_name && (
-                          <p className="mt-1 text-xs text-slate-500">
-                            Tertulis: <span className="font-medium">{item.raw_name}</span>
-                            {item.name_confidence === "low" && (
-                              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                Perlu dicek
-                              </span>
-                            )}
-                          </p>
-                        )}
-                        {!item.raw_name && item.name_confidence === "low" && (
+                        <div className="mt-2 flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>Jumlah</span>
+                            <input
+                              className="h-8 w-16 rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:text-slate-500"
+                              disabled={locked}
+                              min={1}
+                              max={99}
+                              onChange={(event) =>
+                                patchItem(index, {
+                                  quantity: Math.max(
+                                    1,
+                                    Number(event.target.value) || 1,
+                                  ),
+                                })
+                              }
+                              type="number"
+                              value={Number(item.quantity) || 1}
+                            />
+                          </label>
+                          {item.raw_name && (
+                            <span className="min-w-0 truncate text-xs text-slate-400">
+                              Tertulis: {item.raw_name}
+                            </span>
+                          )}
+                        </div>
+                        {item.name_confidence === "low" && (
                           <p className="mt-1 text-xs text-amber-700">
                             Nama produk kurang pasti. Mohon dicek.
-                          </p>
-                        )}
-                        {item.nutrition_source && (
-                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                            {item.nutrition_source === "catalog"
-                              ? "Dari katalog gizi"
-                              : item.nutrition_source === "catalog_estimate"
-                                ? "Data perkiraan katalog"
-                                : item.nutrition_source === "catalog_grounded"
-                                  ? "Katalog + estimasi bersumber"
-                                  : item.nutrition_source === "label_estimate"
-                                    ? "Label + estimasi bersumber"
-                                    : item.nutrition_source === "estimate_unsourced"
-                                      ? "Estimasi AI tanpa sumber"
-                                      : item.nutrition_source === "label"
-                                        ? "Dari label foto"
-                                        : "Estimasi bersumber"}
-                          </p>
-                        )}
-                        {nutritionSources(item.sources).length > 0 && (
-                          <div className="mt-2 text-xs text-slate-500">
-                            <span className="font-medium">Sumber:</span>{" "}
-                            {nutritionSources(item.sources).map(
-                              (source, sourceIndex) => (
-                                <a
-                                  className="mr-2 text-sky-700 underline underline-offset-2 hover:text-sky-900"
-                                  href={source.url}
-                                  key={source.url}
-                                  rel="noreferrer"
-                                  target="_blank"
-                                >
-                                  {source.title || `Sumber ${sourceIndex + 1}`}
-                                </a>
-                              ),
-                            )}
-                          </div>
-                        )}
-                        {item.category && (
-                          <p className="mt-2 text-xs font-semibold capitalize text-emerald-700">
-                            {item.category}
-                          </p>
-                        )}
-                        <p className="mt-1 text-xs text-slate-400">
-                          {item.serving_size || "Takaran saji belum terbaca"}
-                        </p>
-                        <div className="mt-3 grid grid-cols-3 gap-x-4 sm:grid-cols-6">
-                          {[
-                            ["Kalori", item.calories, "kkal"],
-
-                            ["Protein", item.protein_g, "g"],
-
-                            ["Karbo", item.carbs_g, "g"],
-
-                            ["Lemak", item.fat_g, "g"],
-
-                            ["Gula", item.sugar_g, "g"],
-
-                            ["Natrium", item.sodium_mg, "mg"],
-                          ].map(([label, value, unit]) => (
-                            <div
-                              className="border-t border-slate-100 py-2"
-                              key={label}
-                            >
-                              <p className="text-sm font-semibold text-slate-800">
-                                {value == null ? "—" : `${value} ${unit}`}
-                              </p>
-                              <p className="mt-0.5 text-[10px] text-slate-400">
-                                {label}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                        {(item.note || item.sources?.length === 0) && (
-                          <p className="mt-2 text-xs leading-5 text-slate-500">
-                            {item.note ||
-                              "Sumber estimasi tidak tersedia; angka yang kosong tidak ditebak."}
                           </p>
                         )}
                       </article>
@@ -1168,15 +1119,37 @@ function ScannerFlow({ navigate, onSessionName }) {
                       className="flex items-start justify-between gap-4 py-4"
                       key={`${item.name}-${index}`}
                     >
-                      <span className="min-w-0">
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">
                           {item.name || "Makanan"}
                         </span>
                         <span className="mt-1 block text-xs text-slate-400">
                           {item.serving_size || "Takaran saji tidak diketahui"}
+                          {Number(item.quantity) > 1
+                            ? ` · ${item.quantity}×`
+                            : ""}
+                        </span>
+                        <span className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-6">
+                          {[
+                            ["Kalori", item.calories, "kkal"],
+                            ["Protein", item.protein_g, "g"],
+                            ["Karbo", item.carbs_g, "g"],
+                            ["Lemak", item.fat_g, "g"],
+                            ["Gula", item.sugar_g, "g"],
+                            ["Natrium", item.sodium_mg, "mg"],
+                          ].map(([label, value, unit]) => (
+                            <span className="flex flex-col" key={label}>
+                              <span className="font-semibold text-slate-800">
+                                {value == null ? "—" : `${value} ${unit}`}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {label}
+                              </span>
+                            </span>
+                          ))}
                         </span>
                         {nutritionSources(item.sources).length > 0 && (
-                          <span className="mt-1 block text-xs text-slate-500">
+                          <span className="mt-2 block text-xs text-slate-500">
                             Sumber:{" "}
                             {nutritionSources(item.sources).map(
                               (source, sourceIndex) => (
@@ -1191,6 +1164,11 @@ function ScannerFlow({ navigate, onSessionName }) {
                                 </a>
                               ),
                             )}
+                          </span>
+                        )}
+                        {!item.sources?.length && item.nutrition_source === "estimate_unsourced" && (
+                          <span className="mt-1 block text-[11px] text-amber-700">
+                            Estimasi AI tanpa sumber; mohon verifikasi.
                           </span>
                         )}
                       </span>
