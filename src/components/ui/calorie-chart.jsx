@@ -52,7 +52,7 @@ const metrics = [
   },
 ]
 
-export default function CalorieChart({ targets = {} }) {
+export default function CalorieChart({ targets = {}, preview = false }) {
   const [period, setPeriod] = useState("day")
   const [metricKey, setMetricKey] = useState("calories")
   const [data, setData] = useState([])
@@ -63,6 +63,17 @@ export default function CalorieChart({ targets = {} }) {
   const target = Number(targets[metric.key]) || metric.target
 
   useEffect(() => {
+    if (preview) {
+      setData([
+        { label: "07.00", tick: "07", calories: 280, protein_g: 18, carbs_g: 36, fat_g: 9, sugar_g: 7, sodium_mg: 320 },
+        { label: "10.00", tick: "10", calories: 470, protein_g: 27, carbs_g: 58, fat_g: 16, sugar_g: 13, sodium_mg: 510 },
+        { label: "13.00", tick: "13", calories: 1120, protein_g: 56, carbs_g: 138, fat_g: 34, sugar_g: 24, sodium_mg: 1050 },
+        { label: "16.00", tick: "16", calories: 1280, protein_g: 67, carbs_g: 156, fat_g: 39, sugar_g: 29, sodium_mg: 1230 },
+        { label: "19.00", tick: "19", calories: 1560, protein_g: 82, carbs_g: 190, fat_g: 48, sugar_g: 32, sodium_mg: 1450 },
+      ])
+      setLoading(false)
+      return
+    }
     let active = true
     setLoading(true)
     setError("")
@@ -81,7 +92,7 @@ export default function CalorieChart({ targets = {} }) {
     return () => {
       active = false
     }
-  }, [period])
+  }, [period, preview])
 
   return (
     <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-7">

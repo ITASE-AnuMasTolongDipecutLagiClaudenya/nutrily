@@ -110,7 +110,7 @@ import Turnstile from "./components/Turnstile"
 
 import GlowCard from "./components/GlowCard"
 
-import ScannerFlow from "./components/ScannerFlow"
+import ScannerFlow, { ScannerLanding } from "./components/ScannerFlow"
 
 import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
@@ -546,46 +546,111 @@ function NutrilyHero() {
 
     let raf = 0
 
+    let visible = false
+
+    let lastOrbit = ""
+
+    const render = () => {
+      if (wrapRef.current)
+        wrapRef.current.style.transform = `perspective(900px) rotateY(${cx * 6}deg) rotateX(${-cy * 4}deg) translate3d(${cx * 9}px, ${cy * 6}px, 0)`
+
+      const orbit = `${cx * 12}deg ${72 - cy * 6}deg 2.4m`
+
+      if (viewerRef.current && orbit !== lastOrbit) {
+        viewerRef.current.cameraOrbit = orbit
+
+        lastOrbit = orbit
+      }
+    }
+
+    const tick = () => {
+      raf = 0
+
+      cx += (tx - cx) * 0.05
+
+      cy += (ty - cy) * 0.05
+
+      render()
+
+      if (
+        visible &&
+        (Math.abs(tx - cx) > 0.0005 || Math.abs(ty - cy) > 0.0005)
+      ) {
+        raf = requestAnimationFrame(tick)
+      }
+    }
+
+    const start = () => {
+      if (!visible || document.hidden || raf) return
+
+      raf = requestAnimationFrame(tick)
+    }
+
     const onMove = (event) => {
       const rect = section.getBoundingClientRect()
 
       tx = ((event.clientX - rect.left) / rect.width) * 2 - 1
 
       ty = ((event.clientY - rect.top) / rect.height) * 2 - 1
+
+      start()
     }
 
     const onLeave = () => {
       tx = 0
 
       ty = 0
+
+      start()
     }
 
-    const tick = () => {
-      cx += (tx - cx) * 0.05
-
-      cy += (ty - cy) * 0.05
-
-      if (wrapRef.current)
-        wrapRef.current.style.transform = `perspective(900px) rotateY(${cx * 6}deg) rotateX(${-cy * 4}deg) translate3d(${cx * 9}px, ${cy * 6}px, 0)`
-
-      if (viewerRef.current)
-        viewerRef.current.cameraOrbit = `${cx * 12}deg ${72 - cy * 6}deg 2.4m`
-
-      raf = requestAnimationFrame(tick)
+    const onVisibility = () => {
+      if (!document.hidden) start()
     }
 
-    raf = requestAnimationFrame(tick)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting
 
-    section.addEventListener("pointermove", onMove)
+        if (!visible) {
+          cancelAnimationFrame(raf)
+          raf = 0
+        }
+      },
+      { rootMargin: "100px" },
+    )
 
-    section.addEventListener("pointerleave", onLeave)
+    observer.observe(section)
+
+    const hoverQuery = window.matchMedia("(hover: hover) and (pointer: fine)")
+    const syncPointerListeners = () => {
+      if (hoverQuery.matches) {
+        section.addEventListener("pointermove", onMove, { passive: true })
+        section.addEventListener("pointerleave", onLeave, { passive: true })
+      } else {
+        section.removeEventListener("pointermove", onMove)
+        section.removeEventListener("pointerleave", onLeave)
+        tx = 0
+        ty = 0
+      }
+    }
+    syncPointerListeners()
+    hoverQuery.addEventListener("change", syncPointerListeners)
+
+    document.addEventListener("visibilitychange", onVisibility)
 
     return () => {
+      observer.disconnect()
+
       cancelAnimationFrame(raf)
+
+      hoverQuery.removeEventListener("change", syncPointerListeners)
 
       section.removeEventListener("pointermove", onMove)
 
       section.removeEventListener("pointerleave", onLeave)
+
+      document.removeEventListener("visibilitychange", onVisibility)
     }
   }, [])
 
@@ -661,34 +726,58 @@ function NutrilyHero() {
 function LandingNav({ navigate }) {
   const [scrolled, setScrolled] = useState(false)
 
-  const [progress, setProgress] = useState(0)
+  const frameRef = useRef(null)
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 24)
+    const frame = frameRef.current
+
+    if (!frame) return
+
+    let raf = 0
+
+    const update = () => {
+      raf = 0
+
+      const top = window.scrollY
+
+      setScrolled(top > 24)
 
       const max = document.documentElement.scrollHeight - window.innerHeight
 
-      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0)
+      const progress = max > 0 ? Math.min(1, Math.max(0, top / max)) : 0
+
+      frame.style.setProperty("--landing-nav-progress", `${progress * 360}deg`)
     }
 
-    onScroll()
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+
+    update()
 
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    return () => window.removeEventListener("scroll", onScroll)
+    window.addEventListener("resize", onScroll)
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+
+      window.removeEventListener("scroll", onScroll)
+
+      window.removeEventListener("resize", onScroll)
+    }
   }, [])
 
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center px-4">
       <div
+        ref={frameRef}
         className={cn(
           "landing-nav-frame relative isolate w-full rounded-2xl transition-[width,max-width,margin,padding] duration-500 ease-in-out",
 
           scrolled ? "mt-3 w-full p-[5px] sm:w-[85%]" : "max-w-7xl p-0",
         )}
         data-scrolled={scrolled}
-        style={{ "--landing-nav-progress": `${progress * 360}deg` }}
       >
         <nav
           className={cn(
@@ -751,6 +840,8 @@ function Landing({ navigate }) {
   const featRef = useRef(null)
 
   const footerRef = useRef(null)
+
+  const spacerRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
 
@@ -861,6 +952,27 @@ function Landing({ navigate }) {
     }
   }, [loading])
 
+  useEffect(() => {
+    const spacer = spacerRef.current
+
+    const footer = footerRef.current
+
+    if (!spacer || !footer) return
+
+    footer.style.visibility = "hidden"
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        footer.style.visibility = entry.isIntersecting ? "" : "hidden"
+      },
+      { rootMargin: "0px 0px 100% 0px" },
+    )
+
+    observer.observe(spacer)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <main className="landing-page font-poppins relative min-h-screen overflow-x-clip bg-white text-slate-900">
       {loading && <Preloader onDone={() => setLoading(false)} />}
@@ -892,11 +1004,12 @@ function Landing({ navigate }) {
                   </>
                 }
               >
-                <img
-                  alt="Aplikasi Nutrily di ponsel"
-                  className="h-full w-full object-cover"
+                <iframe
+                  aria-label="Pratinjau dashboard Nutrily"
+                  className="phone-dashboard-preview pointer-events-none border-0 bg-white"
                   loading="lazy"
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80"
+                  src={`${import.meta.env.BASE_URL}dashboard-preview`}
+                  title="Pratinjau dashboard Nutrily"
                 />
               </PhoneScrollHero>
             </div>
@@ -946,7 +1059,11 @@ function Landing({ navigate }) {
           </div>
         </div>
 
-        <div aria-hidden className="pointer-events-none h-[100svh]" />
+        <div
+          ref={spacerRef}
+          aria-hidden
+          className="pointer-events-none h-[100svh]"
+        />
 
         <footer
           ref={footerRef}
@@ -1106,7 +1223,7 @@ function Auth({ navigate }) {
             {[
               [ScanLine, "Pindai label makanan"],
 
-              [Bot, "Tanya AI gizi"],
+              [Sparkles, "Panduan AI Personal"],
 
               [TrendingUp, "Pantau perkembanganmu"],
             ].map(([Icon, text]) => (
@@ -1589,7 +1706,7 @@ function Onboarding({ navigate, editMode = false }) {
 
                 avatar: getProfileAvatarUrl(user),
               }}
-              onEditProfile={() => navigate("/profile/account")}
+              onEditProfile={() => navigate("/profile")}
               onSignOut={async () => {
                 await supabase?.auth.signOut()
 
@@ -2979,8 +3096,13 @@ function AppShell({
   summaryTitle = "",
 
   camera = false,
+  preview = false,
+  hideProgressBar = false,
 }) {
-  const { user } = useAuth()
+  const { user: authUser } = useAuth()
+  const user = preview
+    ? { user_metadata: { full_name: "Alya Putri" }, email: "alya@nutrily.id" }
+    : authUser
 
   const wibHour = Number(
     new Intl.DateTimeFormat("en-GB", {
@@ -3020,6 +3142,7 @@ function AppShell({
 
   return (
     <div
+      inert={preview || undefined}
       className={cn(
         "dashboard-shell bg-slate-50 text-slate-900",
 
@@ -3197,7 +3320,7 @@ function AppShell({
 
                         avatar: getProfileAvatarUrl(user),
                       }}
-                      onEditProfile={() => navigate("/profile/account")}
+                      onEditProfile={() => navigate("/profile")}
                       onSignOut={async () => {
                         await supabase?.auth.signOut()
 
@@ -3242,7 +3365,7 @@ function AppShell({
 
                     avatar: getProfileAvatarUrl(user),
                   }}
-                  onEditProfile={() => navigate("/profile/account")}
+                  onEditProfile={() => navigate("/profile")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
@@ -3251,12 +3374,15 @@ function AppShell({
                 />
               </>
             )}
-            <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
+            {!hideProgressBar && (
+              <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
+            )}
           </header>
         )}
         {children}
       </div>
-      {!minimal &&
+      {!preview &&
+        !minimal &&
         active !== "chat" &&
         createPortal(
           <LimelightNav
@@ -3284,14 +3410,77 @@ function AppShell({
   )
 }
 
-function Dashboard({ navigate }) {
+const dashboardPreviewSummary = {
+  totals: {
+    calories: 1560,
+    protein_g: 82,
+    fat_g: 48,
+    carbs_g: 190,
+    sugar_g: 32,
+    sodium_mg: 1450,
+  },
+  targets: {
+    calories: 2100,
+    protein_g: 100,
+    fat_g: 70,
+    carbs_g: 260,
+    sugar_g: 50,
+    sodium_mg: 2000,
+  },
+  meals: [],
+}
+
+const dashboardPreviewMeals = [
+  {
+    id: "preview-meal-1",
+    scan_session_id: "preview-session-1",
+    scan_session_name: "Sarapan sehat",
+    scan_mode: "label",
+    created_at: new Date().toISOString(),
+    calories: 420,
+  },
+  {
+    id: "preview-meal-2",
+    scan_session_id: "preview-session-2",
+    scan_session_name: "Makan siang",
+    scan_mode: "receipt",
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    calories: 680,
+  },
+]
+
+function Dashboard({ navigate, preview = false }) {
   const location = useLocation()
   const [dashboardNotice, setDashboardNotice] = useState(
     location.state?.notice || "",
   )
-  const [summary, setSummary] = useState(null)
-  const [dailyConsulting, setDailyConsulting] = useState(false)
+  const [summary, setSummary] = useState(
+    preview ? dashboardPreviewSummary : null,
+  )
 
+  const [historyMeals, setHistoryMeals] = useState(
+    preview ? dashboardPreviewMeals : null,
+  )
+
+  const [donutMenuOpen, setDonutMenuOpen] = useState(false)
+
+  const [donutSelection, setDonutSelection] = useState([
+    "Kalori",
+
+    "Protein",
+
+    "Lemak",
+
+    "Karbohidrat",
+
+    "Gula total",
+
+    "Natrium",
+  ])
+
+  const [donutDraft, setDonutDraft] = useState(donutSelection)
+
+  const [dailyConsulting, setDailyConsulting] = useState(false)
   useEffect(() => {
     if (!location.state?.notice) return
 
@@ -3302,17 +3491,16 @@ function Dashboard({ navigate }) {
 
   const [featureLoadError, setFeatureLoadError] = useState("")
 
-  const [featureUsage, setFeatureUsage] = useState({
-    label: 0,
-
-    receipt: 0,
-
-    chatbot: 0,
-  })
+  const [featureUsage, setFeatureUsage] = useState(
+    preview
+      ? { label: 24, receipt: 11, chatbot: 18 }
+      : { label: 0, receipt: 0, chatbot: 0 },
+  )
 
   const { user } = useAuth()
 
   useEffect(() => {
+    if (preview) return
     let active = true
 
     const onFeatureUsage = (event) => {
@@ -3338,9 +3526,10 @@ function Dashboard({ navigate }) {
 
       window.removeEventListener("nutrily:feature-usage", onFeatureUsage)
     }
-  }, [user?.id])
+  }, [preview, user?.id])
 
   useEffect(() => {
+    if (preview) return
     let active = true
 
     api("/dashboard")
@@ -3361,10 +3550,20 @@ function Dashboard({ navigate }) {
 
       .catch((error) => active && setFeatureLoadError(error.message))
 
+    api("/meals", { method: "GET" })
+
+      .then((meals) => {
+        if (!active) return
+
+        setHistoryMeals(Array.isArray(meals) ? meals : [])
+      })
+
+      .catch((error) => active && setLoadError(error.message))
+
     return () => {
       active = false
     }
-  }, [user?.id])
+  }, [preview, user?.id])
 
   const totals = summary?.totals || {}
 
@@ -3381,6 +3580,8 @@ function Dashboard({ navigate }) {
       "kcal",
 
       "bg-sky-500",
+
+      "#0EA5E9",
     ],
 
     [
@@ -3393,9 +3594,23 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-violet-500",
+
+      "#8B5CF6",
     ],
 
-    ["Lemak", totals.fat_g || 0, targets.fat_g || 70, "g", "bg-amber-400"],
+    [
+      "Lemak",
+
+      totals.fat_g || 0,
+
+      targets.fat_g || 70,
+
+      "g",
+
+      "bg-amber-400",
+
+      "#F59E0B",
+    ],
 
     [
       "Karbohidrat",
@@ -3407,6 +3622,8 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-emerald-500",
+
+      "#10B981",
     ],
 
     [
@@ -3419,6 +3636,8 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-rose-400",
+
+      "#FB7185",
     ],
 
     [
@@ -3431,8 +3650,10 @@ function Dashboard({ navigate }) {
       "mg",
 
       "bg-orange-500",
+
+      "#F97316",
     ],
-  ].map(([name, current, target, unit, color]) => ({
+  ].map(([name, current, target, unit, color, hex]) => ({
     name,
 
     current: Number(current).toFixed(0),
@@ -3444,6 +3665,8 @@ function Dashboard({ navigate }) {
     pct: `${Math.min(100, Math.round((current / target) * 100))}%`,
 
     color,
+
+    hex,
   }))
 
   const startDailyConsultation = async () => {
@@ -3521,20 +3744,82 @@ function Dashboard({ navigate }) {
     }
   }
 
-  const chartData = [
-    { name: "Protein", value: totals.protein_g, color: "#8B5CF6" },
+  const donutMetrics = macros
 
-    { name: "Lemak", value: totals.fat_g, color: "#F59E0B" },
+    .filter(
+      (item) =>
+        donutSelection.includes(item.name) && Number(item.current) > 0,
+    )
 
-    { name: "Karbohidrat", value: totals.carbs_g, color: "#10B981" },
-  ].filter(({ value }) => value > 0)
+    .map((item) => ({
+      name: item.name,
 
-  const donutData = chartData.length
-    ? chartData
+      value: Number(item.current),
+
+      color: item.hex,
+    }))
+
+  const donutData = donutMetrics.length
+    ? donutMetrics
     : [{ name: "Belum ada data", value: 1, color: "#e2e8f0" }]
 
+  const historySessions = Object.values(
+    (historyMeals || []).reduce((groups, meal) => {
+      const id = meal.scan_session_id || `single-${meal.id}`
+
+      const session = groups[id] || {
+        id,
+
+        meals: [],
+
+        created_at: meal.created_at,
+
+        calories: 0,
+
+        scan_mode: meal.scan_mode || "label",
+
+        scan_session_id: meal.scan_session_id || "",
+
+        scan_session_name: meal.scan_session_name || "",
+      }
+
+      session.meals.push(meal)
+
+      if (new Date(meal.created_at) > new Date(session.created_at)) {
+        session.created_at = meal.created_at
+      }
+
+      session.calories += Number(meal.calories) || 0
+
+      groups[id] = session
+
+      return groups
+    }, {}),
+  )
+
+  const historySessionCounts = { receipt: 0, label: 0 }
+
+  ;[...historySessions]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach((session) => {
+      historySessionCounts[session.scan_mode] =
+        (historySessionCounts[session.scan_mode] || 0) + 1
+
+      session.session_name =
+        session.scan_session_name ||
+        `${
+          session.scan_mode === "receipt" ? "Scan struk" : "Scan label"
+        } ${historySessionCounts[session.scan_mode]}`
+    })
+
+  const recentSessions = [...historySessions]
+
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+    .slice(0, 2)
+
   return (
-    <AppShell active="dashboard" navigate={navigate}>
+    <AppShell active="dashboard" navigate={navigate} preview={preview}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
         <NoticeToast
           message={dashboardNotice}
@@ -3565,9 +3850,80 @@ function Dashboard({ navigate }) {
                   Ringkasan catatan makanan hari ini
                 </p>
               </div>
-              <button className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-50">
-                <MoreHorizontal className="size-5" />
-              </button>
+              <div className="relative shrink-0">
+                <button
+                  aria-expanded={donutMenuOpen}
+                  aria-haspopup="true"
+                  aria-label="Filter grafik asupan gizi"
+                  className={cn(
+                    "grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-colors duration-200 hover:bg-sky-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100",
+                    donutMenuOpen && "bg-sky-600",
+                  )}
+                  onClick={() => {
+                    setDonutDraft(donutSelection)
+                    setDonutMenuOpen((open) => !open)
+                  }}
+                  type="button"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+                {donutMenuOpen && (
+                  <>
+                    <button
+                      aria-hidden="true"
+                      className="fixed inset-0 z-20 cursor-default"
+                      onClick={() => setDonutMenuOpen(false)}
+                      tabIndex={-1}
+                      type="button"
+                    />
+                    <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.22)]">
+                      <p className="text-xs font-bold text-slate-700">
+                        Filter nutrisi
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        Pilih data yang ingin ditampilkan
+                      </p>
+                      <div className="mt-3 space-y-1">
+                        {macros.map((item) => (
+                          <label
+                            className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-sky-50"
+                            key={item.name}
+                          >
+                            <input
+                              checked={donutDraft.includes(item.name)}
+                              className="size-4 shrink-0 accent-sky-500"
+                              onChange={() =>
+                                setDonutDraft((prev) =>
+                                  prev.includes(item.name)
+                                    ? prev.filter(
+                                        (name) => name !== item.name,
+                                      )
+                                    : [...prev, item.name],
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: item.hex }}
+                            />
+                            {item.name}
+                          </label>
+                        ))}
+                      </div>
+                      <Button
+                        className="mt-3 w-full"
+                        onClick={() => {
+                          setDonutSelection(donutDraft)
+                          setDonutMenuOpen(false)
+                        }}
+                      >
+                        Terapkan
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             <div className="mt-5 grid items-center gap-7 md:grid-cols-[260px_1fr]">
               <div className="relative mx-auto h-60 w-full max-w-60">
@@ -3695,55 +4051,61 @@ function Dashboard({ navigate }) {
           </section>
         </div>
 
-        <CalorieChart targets={targets} />
+        <CalorieChart targets={targets} preview={preview} />
 
         {loadError && <NoticeAlert className="mt-4" message={loadError} />}
         <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
           <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-3">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-slate-900">
                   Riwayat Tampilan
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Tiga catatan makanan terbaru
+                  Dua sesi pemindaian terbaru
                 </p>
               </div>
-              <button
-                className="text-xs font-semibold text-sky-600"
+              <Button
+                className="group shrink-0"
                 onClick={() => navigate("/meals")}
               >
                 Lihat semua
-              </button>
+                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Button>
             </div>
             <div className="mt-5 divide-y divide-slate-100">
-              {(summary?.meals || []).slice(0, 3).map((meal) => (
+              {recentSessions.map((session) => (
                 <button
-                  className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 first:pt-1 last:pb-0"
-                  key={meal.id}
+                  className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 last:pb-4"
+                  key={session.id}
                   onClick={() =>
-                    meal.scan_session_id
-                      ? navigate(`/scanner/summary/${meal.scan_session_id}`)
+                    session.scan_session_id
+                      ? navigate(`/scanner/summary/${session.scan_session_id}`)
                       : navigate("/meals")
                   }
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
-                    <Utensils className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    {session.scan_mode === "receipt" ? (
+                      <ReceiptText className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    ) : (
+                      <ScanLine className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-slate-700 transition-colors group-hover:text-sky-700">
-                      {meal.name}
+                      {session.session_name}
                     </span>
                     <span className="mt-1 block text-xs text-slate-400">
-                      {new Date(meal.created_at).toLocaleString("id-ID")}
+                      {new Date(session.created_at).toLocaleString("id-ID")} ·{" "}
+                      {session.meals.length} makanan
                     </span>
                   </span>
-                  <Pill>{meal.calories} kcal</Pill>
+                  <Pill>{Math.round(session.calories)} kcal</Pill>
                 </button>
               ))}
-              {summary && !summary.meals?.length && (
+              {historyMeals && !recentSessions.length && (
                 <p className="py-8 text-center text-sm text-slate-400">
-                  Belum ada makanan tercatat hari ini.
+                  Belum ada riwayat pemindaian.
                 </p>
               )}
             </div>
@@ -4514,6 +4876,16 @@ function Chat({ navigate, routeConversationId }) {
 
   const [sidebarHovered, setSidebarHovered] = useState(false)
 
+  const [chatSearch, setChatSearch] = useState("")
+
+  const filteredConversations = conversations.filter((item) =>
+    String(item.preview || "")
+
+      .toLowerCase()
+
+      .includes(chatSearch.trim().toLowerCase()),
+  )
+
   const [deletingId, setDeletingId] = useState("")
 
   const [conversationToDelete, setConversationToDelete] = useState(null)
@@ -4874,11 +5246,33 @@ function Chat({ navigate, routeConversationId }) {
                   <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-400">
                     Riwayat percakapan
                   </p>
+                  <div className="relative mb-2">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      aria-label="Cari nama percakapan"
+                      autoComplete="off"
+                      className="min-h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-8 text-[11px] text-slate-700 placeholder:text-[10px] placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      onChange={(event) => setChatSearch(event.target.value)}
+                      placeholder="Cari nama percakapan"
+                      type="text"
+                      value={chatSearch}
+                    />
+                    {chatSearch && (
+                      <button
+                        aria-label="Hapus pencarian"
+                        className="absolute right-2 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        onClick={() => setChatSearch("")}
+                        type="button"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    )}
+                  </div>
                   <div
                     className="min-h-0 flex-1 space-y-1 overflow-y-auto"
                     data-lenis-prevent
                   >
-                    {conversations.map((item) => (
+                    {filteredConversations.map((item) => (
                       <div
                         className={cn(
                           "group/history relative rounded-xl transition-colors",
@@ -4946,6 +5340,12 @@ function Chat({ navigate, routeConversationId }) {
                         Mulai percakapan pertamamu.
                       </p>
                     )}
+                    {Boolean(conversations.length) &&
+                      !filteredConversations.length && (
+                        <p className="px-3 text-xs leading-5 text-slate-500">
+                          Tidak ada percakapan yang cocok.
+                        </p>
+                      )}
                   </div>
                 </motion.div>
               )}
@@ -5119,7 +5519,6 @@ function Chat({ navigate, routeConversationId }) {
 
             <div className="relative z-10 shrink-0 bg-gradient-to-t from-white via-white/95 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5 sm:px-5 sm:pb-5">
               <AnimatedAIChat
-                hasMessages={messages.length > 0}
                 image={image}
                 imageInputRef={imageInput}
                 message={message}
@@ -6374,6 +6773,23 @@ export default function App() {
           </ProtectedRoute>
         }
         path="/profile/onboarding"
+      />
+      <Route
+        element={<Dashboard navigate={go} preview />}
+        path="/dashboard-preview"
+      />
+      <Route
+        element={
+          <AppShell
+            active="scanner"
+            hideProgressBar
+            navigate={go}
+            preview
+          >
+            <ScannerLanding navigate={go} start={() => {}} />
+          </AppShell>
+        }
+        path="/scanner-preview"
       />
       <Route
         element={

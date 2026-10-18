@@ -57,6 +57,75 @@
   font-family: inherit;
 }
 
+.phone-dashboard-preview,
+.phone-scanner-preview {
+  width: 426px;
+  height: 924px;
+  transform: scale(0.4573);
+  transform-origin: top left;
+}
+
+.phone-dashboard-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.phone-summary-preview {
+  width: 250px;
+  height: 542px;
+  margin-left: 50%;
+  transform: translateX(-92.525px) scale(0.7402);
+  transform-origin: top left;
+}
+
+.nutrition-advice-compact .chat-markdown p {
+  margin-block: 0.25rem;
+  line-height: 1.4;
+}
+
+.nutrition-advice-compact .chat-markdown ul,
+.nutrition-advice-compact .chat-markdown ol {
+  margin-block: 0.35rem;
+  padding-left: 1rem;
+}
+
+.nutrition-advice-compact .chat-markdown li {
+  line-height: 1.4;
+}
+
+@media (min-width: 640px) {
+  .phone-dashboard-preview,
+  .phone-scanner-preview,
+  .phone-summary-preview {
+    transform: scale(0.5324);
+  }
+
+  .phone-dashboard-preview {
+    transform: scale(0.5324);
+  }
+
+  .phone-summary-preview {
+    transform: translateX(-107.725px) scale(0.8618);
+  }
+}
+
+@media (min-width: 768px) {
+  .phone-dashboard-preview,
+  .phone-scanner-preview,
+  .phone-summary-preview {
+    transform: scale(0.6075);
+  }
+
+  .phone-dashboard-preview {
+    transform: scale(0.6075);
+  }
+
+  .phone-summary-preview {
+    transform: translateX(-122.925px) scale(0.9834);
+  }
+}
+
 .landing-cta {
   display: inline-flex;
   min-height: 2.75rem;

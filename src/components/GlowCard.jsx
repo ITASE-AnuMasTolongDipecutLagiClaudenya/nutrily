@@ -23,7 +23,6 @@ const beforeAfterStyles = `
     inset: calc(var(--border-size) * -1);
     border: var(--border-size) solid transparent;
     border-radius: calc(var(--radius) * 1px);
-    background-attachment: fixed;
     background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
     background-repeat: no-repeat;
     background-position: 50% 50%;
@@ -54,7 +53,6 @@ const beforeAfterStyles = `
   [data-glow] [data-glow] {
     position: absolute;
     inset: 0;
-    will-change: filter;
     opacity: var(--outer, 1);
     border-radius: calc(var(--radius) * 1px);
     border-width: calc(var(--border-size) * 20);
@@ -83,23 +81,31 @@ export default function GlowCard({
   const innerRef = useRef(null)
 
   useEffect(() => {
-    const syncPointer = (e) => {
-      const { clientX: x, clientY: y } = e
-      if (cardRef.current) {
-        cardRef.current.style.setProperty("--x", x.toFixed(2))
-        cardRef.current.style.setProperty(
-          "--xp",
-          (x / window.innerWidth).toFixed(2),
-        )
-        cardRef.current.style.setProperty("--y", y.toFixed(2))
-        cardRef.current.style.setProperty(
-          "--yp",
-          (y / window.innerHeight).toFixed(2),
-        )
-      }
+    const card = cardRef.current
+    if (!card) return
+    let raf = 0
+    let clientX = 0
+    let clientY = 0
+    const apply = () => {
+      raf = 0
+      const rect = card.getBoundingClientRect()
+      card.style.setProperty("--x", (clientX - rect.left).toFixed(2))
+      card.style.setProperty("--y", (clientY - rect.top).toFixed(2))
+      card.style.setProperty("--xp", (clientX / window.innerWidth).toFixed(2))
+      card.style.setProperty("--yp", (clientY / window.innerHeight).toFixed(2))
     }
-    document.addEventListener("pointermove", syncPointer)
-    return () => document.removeEventListener("pointermove", syncPointer)
+    const syncPointer = (e) => {
+      clientX = e.clientX
+      clientY = e.clientY
+      if (!raf) raf = window.requestAnimationFrame(apply)
+    }
+    card.addEventListener("pointermove", syncPointer)
+    card.addEventListener("pointerenter", syncPointer)
+    return () => {
+      card.removeEventListener("pointermove", syncPointer)
+      card.removeEventListener("pointerenter", syncPointer)
+      if (raf) window.cancelAnimationFrame(raf)
+    }
   }, [])
 
   const { base, spread } = glowColorMap[glowColor]
@@ -129,7 +135,6 @@ export default function GlowCard({
       backgroundSize:
         "calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)))",
       backgroundPosition: "50% 50%",
-      backgroundAttachment: "fixed",
       border: "var(--border-size) solid var(--backup-border)",
       position: "relative",
       touchAction: "pan-y",
@@ -160,7 +165,6 @@ export default function GlowCard({
           shadow-[0_1rem_2rem_-1rem_rgba(7,89,133,0.8)]
           p-4
           gap-4
-          backdrop-blur-[5px]
           ${className}
         `}
       >

@@ -3,14 +3,7 @@ import { ArrowUp, ImagePlus, LoaderCircle, Sparkles, X } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { cn } from "../../lib/utils"
 
-const prompts = [
-  "Berapa kebutuhan protein harianku?",
-  "Bantu pilih menu makan siang sehat",
-  "Apa manfaat serat untuk tubuh?",
-]
-
 export default function AnimatedAIChat({
-  hasMessages,
   message,
   onMessageChange,
   onSend,
@@ -29,31 +22,8 @@ export default function AnimatedAIChat({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`
   }, [message])
 
-  const usePrompt = (prompt) => {
-    onMessageChange(prompt)
-    textareaRef.current?.focus()
-  }
-
   return (
     <div className="font-poppins mx-auto w-full max-w-3xl text-slate-800">
-      {!hasMessages && (
-        <div className="mb-5 flex flex-wrap justify-center gap-2">
-          {prompts.map((prompt, index) => (
-            <motion.button
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-left text-xs text-slate-600 shadow-sm transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:text-sm"
-              initial={{ opacity: 0, y: 8 }}
-              key={prompt}
-              onClick={() => usePrompt(prompt)}
-              transition={{ delay: index * 0.07, duration: 0.25 }}
-              type="button"
-            >
-              {prompt}
-            </motion.button>
-          ))}
-        </div>
-      )}
-
       <form
         className="relative overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-[0_16px_48px_-30px_rgba(15,23,42,.28)] transition focus-within:border-sky-300 focus-within:shadow-[0_16px_50px_-25px_rgba(14,165,233,.24)]"
         onSubmit={onSend}
@@ -96,7 +66,7 @@ export default function AnimatedAIChat({
               event.currentTarget.form?.requestSubmit()
             }
           }}
-          placeholder="Tanya apa saja tentang gizi dan kebiasaan makan..."
+          placeholder="Tanyakan seputar kesehatan gizimu"
           ref={textareaRef}
           rows={1}
           value={message}
@@ -153,8 +123,10 @@ export default function AnimatedAIChat({
           aria-hidden="true"
           className="size-3 shrink-0 text-sky-500/70"
         />
-        Jawaban AI bisa keliru. Untuk saran medis, konsultasikan dengan tenaga
-        kesehatan.
+        Jawaban AI bisa keliru.{" "}
+        <span className="hidden sm:inline">
+          Konsultasikan dengan tenaga kesehatan.
+        </span>
       </p>
     </div>
   )
