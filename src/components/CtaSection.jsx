@@ -47,6 +47,8 @@ export default function CtaSection() {
         style={{
           gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+          contain: "strict",
+          transform: "translateZ(0)",
         }}
       >
         {Array.from({ length: total }).map((_, i) => (

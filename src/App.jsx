@@ -546,46 +546,92 @@ function NutrilyHero() {
 
     let raf = 0
 
+    let visible = true
+
+    let lastOrbit = ""
+
+    const render = () => {
+      if (wrapRef.current)
+        wrapRef.current.style.transform = `perspective(900px) rotateY(${cx * 6}deg) rotateX(${-cy * 4}deg) translate3d(${cx * 9}px, ${cy * 6}px, 0)`
+
+      const orbit = `${cx * 12}deg ${72 - cy * 6}deg 2.4m`
+
+      if (viewerRef.current && orbit !== lastOrbit) {
+        viewerRef.current.cameraOrbit = orbit
+
+        lastOrbit = orbit
+      }
+    }
+
+    const tick = () => {
+      raf = 0
+
+      cx += (tx - cx) * 0.05
+
+      cy += (ty - cy) * 0.05
+
+      render()
+
+      if (
+        visible &&
+        (Math.abs(tx - cx) > 0.0005 || Math.abs(ty - cy) > 0.0005)
+      ) {
+        raf = requestAnimationFrame(tick)
+      }
+    }
+
+    const start = () => {
+      if (!visible || document.hidden || raf) return
+
+      raf = requestAnimationFrame(tick)
+    }
+
     const onMove = (event) => {
       const rect = section.getBoundingClientRect()
 
       tx = ((event.clientX - rect.left) / rect.width) * 2 - 1
 
       ty = ((event.clientY - rect.top) / rect.height) * 2 - 1
+
+      start()
     }
 
     const onLeave = () => {
       tx = 0
 
       ty = 0
+
+      start()
     }
 
-    const tick = () => {
-      cx += (tx - cx) * 0.05
-
-      cy += (ty - cy) * 0.05
-
-      if (wrapRef.current)
-        wrapRef.current.style.transform = `perspective(900px) rotateY(${cx * 6}deg) rotateX(${-cy * 4}deg) translate3d(${cx * 9}px, ${cy * 6}px, 0)`
-
-      if (viewerRef.current)
-        viewerRef.current.cameraOrbit = `${cx * 12}deg ${72 - cy * 6}deg 2.4m`
-
-      raf = requestAnimationFrame(tick)
+    const onVisibility = () => {
+      if (!document.hidden) start()
     }
 
-    raf = requestAnimationFrame(tick)
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting
+
+      if (visible) start()
+    })
+
+    observer.observe(section)
 
     section.addEventListener("pointermove", onMove)
 
     section.addEventListener("pointerleave", onLeave)
 
+    document.addEventListener("visibilitychange", onVisibility)
+
     return () => {
+      observer.disconnect()
+
       cancelAnimationFrame(raf)
 
       section.removeEventListener("pointermove", onMove)
 
       section.removeEventListener("pointerleave", onLeave)
+
+      document.removeEventListener("visibilitychange", onVisibility)
     }
   }, [])
 
@@ -661,34 +707,58 @@ function NutrilyHero() {
 function LandingNav({ navigate }) {
   const [scrolled, setScrolled] = useState(false)
 
-  const [progress, setProgress] = useState(0)
+  const frameRef = useRef(null)
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 24)
+    const frame = frameRef.current
+
+    if (!frame) return
+
+    let raf = 0
+
+    const update = () => {
+      raf = 0
+
+      const top = window.scrollY
+
+      setScrolled(top > 24)
 
       const max = document.documentElement.scrollHeight - window.innerHeight
 
-      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0)
+      const progress = max > 0 ? Math.min(1, Math.max(0, top / max)) : 0
+
+      frame.style.setProperty("--landing-nav-progress", `${progress * 360}deg`)
     }
 
-    onScroll()
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+
+    update()
 
     window.addEventListener("scroll", onScroll, { passive: true })
 
-    return () => window.removeEventListener("scroll", onScroll)
+    window.addEventListener("resize", onScroll)
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+
+      window.removeEventListener("scroll", onScroll)
+
+      window.removeEventListener("resize", onScroll)
+    }
   }, [])
 
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center px-4">
       <div
+        ref={frameRef}
         className={cn(
           "landing-nav-frame relative isolate w-full rounded-2xl transition-[width,max-width,margin,padding] duration-500 ease-in-out",
 
           scrolled ? "mt-3 w-full p-[5px] sm:w-[85%]" : "max-w-7xl p-0",
         )}
         data-scrolled={scrolled}
-        style={{ "--landing-nav-progress": `${progress * 360}deg` }}
       >
         <nav
           className={cn(
@@ -751,6 +821,8 @@ function Landing({ navigate }) {
   const featRef = useRef(null)
 
   const footerRef = useRef(null)
+
+  const spacerRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
 
@@ -861,6 +933,27 @@ function Landing({ navigate }) {
     }
   }, [loading])
 
+  useEffect(() => {
+    const spacer = spacerRef.current
+
+    const footer = footerRef.current
+
+    if (!spacer || !footer) return
+
+    footer.style.visibility = "hidden"
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        footer.style.visibility = entry.isIntersecting ? "" : "hidden"
+      },
+      { rootMargin: "0px 0px 100% 0px" },
+    )
+
+    observer.observe(spacer)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <main className="landing-page font-poppins relative min-h-screen overflow-x-clip bg-white text-slate-900">
       {loading && <Preloader onDone={() => setLoading(false)} />}
@@ -946,7 +1039,11 @@ function Landing({ navigate }) {
           </div>
         </div>
 
-        <div aria-hidden className="pointer-events-none h-[100svh]" />
+        <div
+          ref={spacerRef}
+          aria-hidden
+          className="pointer-events-none h-[100svh]"
+        />
 
         <footer
           ref={footerRef}
