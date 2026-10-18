@@ -325,15 +325,15 @@ function CameraView({ mode, onCapture, onClose }) {
       ) : null}
       {!stream && !scanning && <div className="absolute inset-0 bg-black" />}
       {!scanning && (
-        <footer className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12">
+        <footer className="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12">
           <NoticeToast
             message={notice}
             onClose={() => setNotice("")}
             variant="destructive"
           />
           <button
-            aria-label="Unggah foto"
-            className="grid size-14 justify-self-start place-items-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
+            aria-label="Unggah foto dari galeri"
+            className="grid size-14 justify-self-end place-items-center rounded-full bg-white/15 backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
             onClick={() => fileRef.current?.click()}
           >
             <Images className="size-6" />
@@ -349,7 +349,6 @@ function CameraView({ mode, onCapture, onClose }) {
           <input
             ref={fileRef}
             accept="image/jpeg,image/png"
-            capture="environment"
             className="hidden"
             onChange={(event) => scan(event.target.files?.[0])}
             type="file"
@@ -1246,7 +1245,7 @@ function ScannerFlow({ navigate, onSessionName }) {
       )}
 
       {isSummary && session?.sessionId === summaryId && (
-        <main className="font-poppins mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-8 sm:pt-7 lg:pb-10">
+        <main className="font-poppins mx-auto w-full max-w-7xl overflow-x-clip px-4 pb-16 pt-6 sm:px-8 sm:pt-7 lg:pb-10">
           <div className="mb-7">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Ringkasan gizimu
@@ -1257,7 +1256,7 @@ function ScannerFlow({ navigate, onSessionName }) {
             </p>
           </div>
           <div className="grid items-start gap-5 lg:grid-cols-[1.25fr_.75fr]">
-            <div className="flex flex-col gap-5">
+            <div className="flex min-w-0 flex-col gap-5">
               <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
                 <h2 className="text-lg font-bold text-slate-900">
                   Item yang dipindai
@@ -1303,7 +1302,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                           ))}
                         </span>
                         {nutritionSources(item.sources).length > 0 && (
-                          <span className="mt-2 block text-xs text-slate-500">
+                          <span className="mt-2 block break-words text-xs text-slate-500">
                             Sumber:{" "}
                             {nutritionSources(item.sources).map(
                               (source, sourceIndex) => (
@@ -1342,13 +1341,13 @@ function ScannerFlow({ navigate, onSessionName }) {
                       Rekomendasi gizi
                     </h2>
                   </div>
-                  <div className="mt-3 text-sm text-slate-600">
+                  <div className="mt-3 break-words text-sm text-slate-600">
                     <Markdown content={session.advice} />
                   </div>
                 </section>
               )}
             </div>
-            <div className="lg:self-stretch">
+            <div className="order-first min-w-0 lg:order-none lg:self-stretch">
               <div className="lg:sticky lg:top-24">
                 <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
                   <h2 className="text-lg font-bold text-slate-900">
@@ -1441,7 +1440,7 @@ function ScannerFlow({ navigate, onSessionName }) {
               </div>
             </div>
             <section
-              className={`rounded-3xl border border-slate-100 bg-white shadow-sm lg:col-span-2 ${
+              className={`min-w-0 rounded-3xl border border-slate-100 bg-white shadow-sm lg:col-span-2 ${
                 expandedChat
                   ? "fixed inset-0 z-[70] flex flex-col rounded-none border-0"
                   : ""
@@ -1551,8 +1550,7 @@ function ScannerFlow({ navigate, onSessionName }) {
           </div>
           <div className="mt-4">
             <Button onClick={() => navigate(`/chat/${summaryId}`)}>
-              <Sparkles className="size-4" /> Lanjutkan konsultasi lanjutan di
-              chat
+              <Sparkles className="size-4" /> Lanjutkan konsultasi
             </Button>
           </div>
         </main>
