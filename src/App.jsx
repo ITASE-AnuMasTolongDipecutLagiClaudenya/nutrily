@@ -3290,8 +3290,10 @@ function Dashboard({ navigate }) {
     location.state?.notice || "",
   )
   const [summary, setSummary] = useState(null)
-  const [dailyConsulting, setDailyConsulting] = useState(false)
 
+  const [historyMeals, setHistoryMeals] = useState(null)
+
+  const [dailyConsulting, setDailyConsulting] = useState(false)
   useEffect(() => {
     if (!location.state?.notice) return
 
@@ -3360,6 +3362,16 @@ function Dashboard({ navigate }) {
       })
 
       .catch((error) => active && setFeatureLoadError(error.message))
+
+    api("/meals", { method: "GET" })
+
+      .then((meals) => {
+        if (!active) return
+
+        setHistoryMeals(Array.isArray(meals) ? meals : [])
+      })
+
+      .catch((error) => active && setLoadError(error.message))
 
     return () => {
       active = false
@@ -3532,6 +3544,61 @@ function Dashboard({ navigate }) {
   const donutData = chartData.length
     ? chartData
     : [{ name: "Belum ada data", value: 1, color: "#e2e8f0" }]
+
+  const historySessions = Object.values(
+    (historyMeals || []).reduce((groups, meal) => {
+      const id = meal.scan_session_id || `single-${meal.id}`
+
+      const session = groups[id] || {
+        id,
+
+        meals: [],
+
+        created_at: meal.created_at,
+
+        calories: 0,
+
+        scan_mode: meal.scan_mode || "label",
+
+        scan_session_id: meal.scan_session_id || "",
+
+        scan_session_name: meal.scan_session_name || "",
+      }
+
+      session.meals.push(meal)
+
+      if (new Date(meal.created_at) > new Date(session.created_at)) {
+        session.created_at = meal.created_at
+      }
+
+      session.calories += Number(meal.calories) || 0
+
+      groups[id] = session
+
+      return groups
+    }, {}),
+  )
+
+  const historySessionCounts = { receipt: 0, label: 0 }
+
+  ;[...historySessions]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach((session) => {
+      historySessionCounts[session.scan_mode] =
+        (historySessionCounts[session.scan_mode] || 0) + 1
+
+      session.session_name =
+        session.scan_session_name ||
+        `${
+          session.scan_mode === "receipt" ? "Scan struk" : "Scan label"
+        } ${historySessionCounts[session.scan_mode]}`
+    })
+
+  const recentSessions = [...historySessions]
+
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+    .slice(0, 2)
 
   return (
     <AppShell active="dashboard" navigate={navigate}>
@@ -3706,7 +3773,7 @@ function Dashboard({ navigate }) {
                   Riwayat Tampilan
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Tiga catatan makanan terbaru
+                  Dua sesi pemindaian terbaru
                 </p>
               </div>
               <button
@@ -3717,33 +3784,38 @@ function Dashboard({ navigate }) {
               </button>
             </div>
             <div className="mt-5 divide-y divide-slate-100">
-              {(summary?.meals || []).slice(0, 3).map((meal) => (
+              {recentSessions.map((session) => (
                 <button
-                  className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 first:pt-1 last:pb-0"
-                  key={meal.id}
+                  className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:bg-sky-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 last:pb-4"
+                  key={session.id}
                   onClick={() =>
-                    meal.scan_session_id
-                      ? navigate(`/scanner/summary/${meal.scan_session_id}`)
+                    session.scan_session_id
+                      ? navigate(`/scanner/summary/${session.scan_session_id}`)
                       : navigate("/meals")
                   }
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
-                    <Utensils className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    {session.scan_mode === "receipt" ? (
+                      <ReceiptText className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    ) : (
+                      <ScanLine className="size-4.5 transition-colors group-hover:text-sky-600" />
+                    )}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-slate-700 transition-colors group-hover:text-sky-700">
-                      {meal.name}
+                      {session.session_name}
                     </span>
                     <span className="mt-1 block text-xs text-slate-400">
-                      {new Date(meal.created_at).toLocaleString("id-ID")}
+                      {new Date(session.created_at).toLocaleString("id-ID")} ·{" "}
+                      {session.meals.length} makanan
                     </span>
                   </span>
-                  <Pill>{meal.calories} kcal</Pill>
+                  <Pill>{Math.round(session.calories)} kcal</Pill>
                 </button>
               ))}
-              {summary && !summary.meals?.length && (
+              {historyMeals && !recentSessions.length && (
                 <p className="py-8 text-center text-sm text-slate-400">
-                  Belum ada makanan tercatat hari ini.
+                  Belum ada riwayat pemindaian.
                 </p>
               )}
             </div>

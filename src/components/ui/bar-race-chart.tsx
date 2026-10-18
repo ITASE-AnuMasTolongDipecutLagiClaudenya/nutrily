@@ -216,24 +216,24 @@ function Row({
           >
             {datum.label} · {format(shown)}
           </span>
-          <span className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap font-mono text-xs tabular-nums">
+          <span className="absolute left-full top-1/2 ml-2 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap font-mono text-xs tabular-nums">
             {format(shown)}
+            {chip && (
+              <span
+                data-rank-chip={chip.kind}
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${
+                  chip.kind === "down"
+                    ? "bg-chart-5/15 text-foreground"
+                    : "bg-chart-2/15 text-foreground"
+                }`}
+              >
+                {chip.kind === "new"
+                  ? "baru"
+                  : `${chip.kind === "up" ? "▲" : "▼"}${chip.places}`}
+              </span>
+            )}
           </span>
         </div>
-        {chip && (
-          <span
-            data-rank-chip={chip.kind}
-            className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium leading-none ${
-              chip.kind === "down"
-                ? "bg-chart-5/15 text-foreground"
-                : "bg-chart-2/15 text-foreground"
-            }`}
-          >
-            {chip.kind === "new"
-              ? "baru"
-              : `${chip.kind === "up" ? "▲" : "▼"}${chip.places}`}
-          </span>
-        )}
       </div>
       {onClick && (
         <button
