@@ -1223,7 +1223,7 @@ function Auth({ navigate }) {
             {[
               [ScanLine, "Pindai label makanan"],
 
-              [Bot, "Tanya AI gizi"],
+              [Sparkles, "Panduan AI Personal"],
 
               [TrendingUp, "Pantau perkembanganmu"],
             ].map(([Icon, text]) => (
