@@ -3019,7 +3019,13 @@ function AppShell({
   ]
 
   return (
-    <div className="dashboard-shell min-h-screen bg-slate-50 text-slate-900">
+    <div
+      className={cn(
+        "dashboard-shell bg-slate-50 text-slate-900",
+
+        active === "chat" ? "h-dvh overflow-hidden" : "min-h-screen",
+      )}
+    >
       {!minimal && active !== "chat" && (
         <aside
           className={cn(
@@ -3142,12 +3148,12 @@ function AppShell({
             "transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         )}
       >
-        {!camera && (
+        {!camera && active !== "chat" && (
           <header
             className={cn(
               "sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white px-5 sm:px-8",
 
-              ["dashboard", "meals", "scanner", "chat"].includes(active)
+              ["dashboard", "meals", "scanner"].includes(active)
                 ? "h-20"
                 : "h-16",
             )}
@@ -4753,7 +4759,7 @@ function Chat({ navigate, routeConversationId }) {
   return (
     <AppShell active="chat" navigate={navigate}>
       <main
-        className="font-poppins relative h-[calc(100dvh-5rem)] overflow-hidden bg-white text-slate-900"
+        className="font-poppins relative h-dvh overflow-hidden bg-white text-slate-900"
         data-lenis-prevent
       >
         <div
@@ -4975,7 +4981,7 @@ function Chat({ navigate, routeConversationId }) {
           </aside>
 
           <section className="flex min-h-0 min-w-0 flex-col">
-            <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6">
+            <header className="sticky top-0 z-20 flex h-20 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6">
               <div className="flex items-center gap-3">
                 <button
                   aria-label={
