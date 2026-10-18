@@ -11,9 +11,9 @@ const cn = (...classes) => classes.filter(Boolean).join(" ")
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect
 
-function PhoneFrame({ children }) {
+function PhoneFrame({ children, className }) {
   return (
-    <div className="relative mx-auto w-52 sm:w-60 md:w-68">
+    <div className={cn("relative mx-auto w-52 sm:w-60 md:w-68", className)}>
       <span
         aria-hidden
         className="absolute -left-[2px] top-[16%] h-7 w-[3px] rounded-l-sm bg-slate-400/50"
@@ -51,6 +51,7 @@ export default function PhoneScrollHero({
   overlap = 20,
   tilt = 22,
   className,
+  phoneClassName,
 }) {
   const prefersReducedMotion = useReducedMotion()
   const sectionRef = useRef(null)
@@ -62,19 +63,37 @@ export default function PhoneScrollHero({
     if (!el) return
     const win = el.ownerDocument.defaultView ?? window
     let raf = 0
+    let active = false
     const update = () => {
       raf = 0
+      if (!active) return
       const rect = el.getBoundingClientRect()
       const travel = Math.max(1, rect.height - win.innerHeight)
       progress.set(Math.min(1, Math.max(0, -rect.top / travel)))
     }
     const onScroll = () => {
-      if (!raf) raf = win.requestAnimationFrame(update)
+      if (active && !raf) raf = win.requestAnimationFrame(update)
     }
-    update()
-    win.addEventListener("scroll", onScroll, { passive: true })
-    win.addEventListener("resize", onScroll)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting === active) return
+        active = entry.isIntersecting
+        if (active) {
+          update()
+          win.addEventListener("scroll", onScroll, { passive: true })
+          win.addEventListener("resize", onScroll, { passive: true })
+        } else {
+          win.removeEventListener("scroll", onScroll)
+          win.removeEventListener("resize", onScroll)
+          if (raf) win.cancelAnimationFrame(raf)
+          raf = 0
+        }
+      },
+      { rootMargin: "100px 0px" },
+    )
+    observer.observe(el)
     return () => {
+      observer.disconnect()
       win.removeEventListener("scroll", onScroll)
       win.removeEventListener("resize", onScroll)
       if (raf) win.cancelAnimationFrame(raf)
@@ -111,7 +130,7 @@ export default function PhoneScrollHero({
           }}
           className="relative z-10 -mt-6 md:-mt-12"
         >
-          <PhoneFrame>{children}</PhoneFrame>
+          <PhoneFrame className={phoneClassName}>{children}</PhoneFrame>
         </motion.div>
       </div>
     </section>

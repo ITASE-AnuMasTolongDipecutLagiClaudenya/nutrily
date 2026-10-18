@@ -91,6 +91,38 @@ function nutritionSources(sources) {
     : []
 }
 
+export function NutritionAdviceCard({ advice, compact = false }) {
+  if (!advice) return null
+
+  return (
+    <section
+      className={
+        compact
+          ? "rounded-2xl border border-slate-100 bg-white p-3 shadow-sm"
+          : "rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6"
+      }
+    >
+      <div className="flex items-center gap-2 text-sky-700">
+        <Sparkles className={compact ? "size-3.5" : "size-4"} />
+        <h2
+          className={
+            compact
+              ? "text-sm font-bold text-slate-900"
+              : "text-lg font-bold text-slate-900"
+          }
+        >
+          Rekomendasi gizi
+        </h2>
+      </div>
+      <div
+        className={`mt-3 break-words text-slate-600 ${compact ? "nutrition-advice-compact text-[11px]" : "text-sm"}`}
+      >
+        <Markdown content={advice} />
+      </div>
+    </section>
+  )
+}
+
 async function optimizeScanImage(image) {
   if (!globalThis.createImageBitmap) return image
 
@@ -359,7 +391,7 @@ function CameraView({ mode, onCapture, onClose }) {
   )
 }
 
-function ScannerLanding({ navigate, start }) {
+export function ScannerLanding({ navigate, start }) {
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-5xl flex-col px-5 pb-28 pt-8 sm:px-8 lg:pb-10">
       <p className="text-sm font-semibold text-sky-600">Pemindai Nutrily</p>
@@ -1333,19 +1365,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                   ))}
                 </ul>
               </section>
-              {session.advice && (
-                <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-                  <div className="flex items-center gap-2 text-sky-700">
-                    <Sparkles className="size-4" />
-                    <h2 className="text-lg font-bold text-slate-900">
-                      Rekomendasi gizi
-                    </h2>
-                  </div>
-                  <div className="mt-3 break-words text-sm text-slate-600">
-                    <Markdown content={session.advice} />
-                  </div>
-                </section>
-              )}
+              <NutritionAdviceCard advice={session.advice} />
             </div>
             <div className="order-first min-w-0 lg:order-none lg:self-stretch">
               <div className="lg:sticky lg:top-24">

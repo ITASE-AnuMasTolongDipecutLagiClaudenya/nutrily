@@ -110,7 +110,7 @@ import Turnstile from "./components/Turnstile"
 
 import GlowCard from "./components/GlowCard"
 
-import ScannerFlow from "./components/ScannerFlow"
+import ScannerFlow, { ScannerLanding } from "./components/ScannerFlow"
 
 import AnimatedAIChat from "./components/ui/animated-ai-chat"
 
@@ -546,7 +546,7 @@ function NutrilyHero() {
 
     let raf = 0
 
-    let visible = true
+    let visible = false
 
     let lastOrbit = ""
 
@@ -608,17 +608,34 @@ function NutrilyHero() {
       if (!document.hidden) start()
     }
 
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting
 
-      if (visible) start()
-    })
+        if (!visible) {
+          cancelAnimationFrame(raf)
+          raf = 0
+        }
+      },
+      { rootMargin: "100px" },
+    )
 
     observer.observe(section)
 
-    section.addEventListener("pointermove", onMove)
-
-    section.addEventListener("pointerleave", onLeave)
+    const hoverQuery = window.matchMedia("(hover: hover) and (pointer: fine)")
+    const syncPointerListeners = () => {
+      if (hoverQuery.matches) {
+        section.addEventListener("pointermove", onMove, { passive: true })
+        section.addEventListener("pointerleave", onLeave, { passive: true })
+      } else {
+        section.removeEventListener("pointermove", onMove)
+        section.removeEventListener("pointerleave", onLeave)
+        tx = 0
+        ty = 0
+      }
+    }
+    syncPointerListeners()
+    hoverQuery.addEventListener("change", syncPointerListeners)
 
     document.addEventListener("visibilitychange", onVisibility)
 
@@ -626,6 +643,8 @@ function NutrilyHero() {
       observer.disconnect()
 
       cancelAnimationFrame(raf)
+
+      hoverQuery.removeEventListener("change", syncPointerListeners)
 
       section.removeEventListener("pointermove", onMove)
 
@@ -985,11 +1004,12 @@ function Landing({ navigate }) {
                   </>
                 }
               >
-                <img
-                  alt="Aplikasi Nutrily di ponsel"
-                  className="h-full w-full object-cover"
+                <iframe
+                  aria-label="Pratinjau dashboard Nutrily"
+                  className="phone-dashboard-preview pointer-events-none border-0 bg-white"
                   loading="lazy"
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80"
+                  src={`${import.meta.env.BASE_URL}dashboard-preview`}
+                  title="Pratinjau dashboard Nutrily"
                 />
               </PhoneScrollHero>
             </div>
@@ -3076,8 +3096,13 @@ function AppShell({
   summaryTitle = "",
 
   camera = false,
+  preview = false,
+  hideProgressBar = false,
 }) {
-  const { user } = useAuth()
+  const { user: authUser } = useAuth()
+  const user = preview
+    ? { user_metadata: { full_name: "Alya Putri" }, email: "alya@nutrily.id" }
+    : authUser
 
   const wibHour = Number(
     new Intl.DateTimeFormat("en-GB", {
@@ -3117,6 +3142,7 @@ function AppShell({
 
   return (
     <div
+      inert={preview || undefined}
       className={cn(
         "dashboard-shell bg-slate-50 text-slate-900",
 
@@ -3348,12 +3374,15 @@ function AppShell({
                 />
               </>
             )}
-            <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
+            {!hideProgressBar && (
+              <ScrollProgressBar className="absolute inset-x-0 bottom-0 h-[5px] overflow-hidden bg-sky-100/70" />
+            )}
           </header>
         )}
         {children}
       </div>
-      {!minimal &&
+      {!preview &&
+        !minimal &&
         active !== "chat" &&
         createPortal(
           <LimelightNav
@@ -3381,14 +3410,57 @@ function AppShell({
   )
 }
 
-function Dashboard({ navigate }) {
+const dashboardPreviewSummary = {
+  totals: {
+    calories: 1560,
+    protein_g: 82,
+    fat_g: 48,
+    carbs_g: 190,
+    sugar_g: 32,
+    sodium_mg: 1450,
+  },
+  targets: {
+    calories: 2100,
+    protein_g: 100,
+    fat_g: 70,
+    carbs_g: 260,
+    sugar_g: 50,
+    sodium_mg: 2000,
+  },
+  meals: [],
+}
+
+const dashboardPreviewMeals = [
+  {
+    id: "preview-meal-1",
+    scan_session_id: "preview-session-1",
+    scan_session_name: "Sarapan sehat",
+    scan_mode: "label",
+    created_at: new Date().toISOString(),
+    calories: 420,
+  },
+  {
+    id: "preview-meal-2",
+    scan_session_id: "preview-session-2",
+    scan_session_name: "Makan siang",
+    scan_mode: "receipt",
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    calories: 680,
+  },
+]
+
+function Dashboard({ navigate, preview = false }) {
   const location = useLocation()
   const [dashboardNotice, setDashboardNotice] = useState(
     location.state?.notice || "",
   )
-  const [summary, setSummary] = useState(null)
+  const [summary, setSummary] = useState(
+    preview ? dashboardPreviewSummary : null,
+  )
 
-  const [historyMeals, setHistoryMeals] = useState(null)
+  const [historyMeals, setHistoryMeals] = useState(
+    preview ? dashboardPreviewMeals : null,
+  )
 
   const [donutMenuOpen, setDonutMenuOpen] = useState(false)
 
@@ -3419,17 +3491,16 @@ function Dashboard({ navigate }) {
 
   const [featureLoadError, setFeatureLoadError] = useState("")
 
-  const [featureUsage, setFeatureUsage] = useState({
-    label: 0,
-
-    receipt: 0,
-
-    chatbot: 0,
-  })
+  const [featureUsage, setFeatureUsage] = useState(
+    preview
+      ? { label: 24, receipt: 11, chatbot: 18 }
+      : { label: 0, receipt: 0, chatbot: 0 },
+  )
 
   const { user } = useAuth()
 
   useEffect(() => {
+    if (preview) return
     let active = true
 
     const onFeatureUsage = (event) => {
@@ -3455,9 +3526,10 @@ function Dashboard({ navigate }) {
 
       window.removeEventListener("nutrily:feature-usage", onFeatureUsage)
     }
-  }, [user?.id])
+  }, [preview, user?.id])
 
   useEffect(() => {
+    if (preview) return
     let active = true
 
     api("/dashboard")
@@ -3491,7 +3563,7 @@ function Dashboard({ navigate }) {
     return () => {
       active = false
     }
-  }, [user?.id])
+  }, [preview, user?.id])
 
   const totals = summary?.totals || {}
 
@@ -3747,7 +3819,7 @@ function Dashboard({ navigate }) {
     .slice(0, 2)
 
   return (
-    <AppShell active="dashboard" navigate={navigate}>
+    <AppShell active="dashboard" navigate={navigate} preview={preview}>
       <main className="mx-auto max-w-7xl px-5 pb-28 pt-7 sm:px-8 lg:pb-10">
         <NoticeToast
           message={dashboardNotice}
@@ -3979,7 +4051,7 @@ function Dashboard({ navigate }) {
           </section>
         </div>
 
-        <CalorieChart targets={targets} />
+        <CalorieChart targets={targets} preview={preview} />
 
         {loadError && <NoticeAlert className="mt-4" message={loadError} />}
         <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
@@ -6701,6 +6773,23 @@ export default function App() {
           </ProtectedRoute>
         }
         path="/profile/onboarding"
+      />
+      <Route
+        element={<Dashboard navigate={go} preview />}
+        path="/dashboard-preview"
+      />
+      <Route
+        element={
+          <AppShell
+            active="scanner"
+            hideProgressBar
+            navigate={go}
+            preview
+          >
+            <ScannerLanding navigate={go} start={() => {}} />
+          </AppShell>
+        }
+        path="/scanner-preview"
       />
       <Route
         element={
