@@ -1118,7 +1118,7 @@ function ScannerFlow({ navigate, onSessionName }) {
                       {session.items.map((item, index) => (
                         <article
                           className="border-b border-slate-100 bg-white px-1 py-5 last:border-0"
-                          key={`${item.name}-${index}`}
+                          key={index}
                         >
                           <div className="flex items-start gap-3">
                             <label className="min-w-0 flex-1">
