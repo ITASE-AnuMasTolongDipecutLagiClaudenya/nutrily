@@ -1589,7 +1589,7 @@ function Onboarding({ navigate, editMode = false }) {
 
                 avatar: getProfileAvatarUrl(user),
               }}
-              onEditProfile={() => navigate("/profile/account")}
+              onEditProfile={() => navigate("/profile")}
               onSignOut={async () => {
                 await supabase?.auth.signOut()
 
@@ -3197,7 +3197,7 @@ function AppShell({
 
                         avatar: getProfileAvatarUrl(user),
                       }}
-                      onEditProfile={() => navigate("/profile/account")}
+                      onEditProfile={() => navigate("/profile")}
                       onSignOut={async () => {
                         await supabase?.auth.signOut()
 
@@ -3242,7 +3242,7 @@ function AppShell({
 
                     avatar: getProfileAvatarUrl(user),
                   }}
-                  onEditProfile={() => navigate("/profile/account")}
+                  onEditProfile={() => navigate("/profile")}
                   onSignOut={async () => {
                     await supabase?.auth.signOut()
 
@@ -3292,6 +3292,24 @@ function Dashboard({ navigate }) {
   const [summary, setSummary] = useState(null)
 
   const [historyMeals, setHistoryMeals] = useState(null)
+
+  const [donutMenuOpen, setDonutMenuOpen] = useState(false)
+
+  const [donutSelection, setDonutSelection] = useState([
+    "Kalori",
+
+    "Protein",
+
+    "Lemak",
+
+    "Karbohidrat",
+
+    "Gula total",
+
+    "Natrium",
+  ])
+
+  const [donutDraft, setDonutDraft] = useState(donutSelection)
 
   const [dailyConsulting, setDailyConsulting] = useState(false)
   useEffect(() => {
@@ -3393,6 +3411,8 @@ function Dashboard({ navigate }) {
       "kcal",
 
       "bg-sky-500",
+
+      "#0EA5E9",
     ],
 
     [
@@ -3405,9 +3425,23 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-violet-500",
+
+      "#8B5CF6",
     ],
 
-    ["Lemak", totals.fat_g || 0, targets.fat_g || 70, "g", "bg-amber-400"],
+    [
+      "Lemak",
+
+      totals.fat_g || 0,
+
+      targets.fat_g || 70,
+
+      "g",
+
+      "bg-amber-400",
+
+      "#F59E0B",
+    ],
 
     [
       "Karbohidrat",
@@ -3419,6 +3453,8 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-emerald-500",
+
+      "#10B981",
     ],
 
     [
@@ -3431,6 +3467,8 @@ function Dashboard({ navigate }) {
       "g",
 
       "bg-rose-400",
+
+      "#FB7185",
     ],
 
     [
@@ -3443,8 +3481,10 @@ function Dashboard({ navigate }) {
       "mg",
 
       "bg-orange-500",
+
+      "#F97316",
     ],
-  ].map(([name, current, target, unit, color]) => ({
+  ].map(([name, current, target, unit, color, hex]) => ({
     name,
 
     current: Number(current).toFixed(0),
@@ -3456,6 +3496,8 @@ function Dashboard({ navigate }) {
     pct: `${Math.min(100, Math.round((current / target) * 100))}%`,
 
     color,
+
+    hex,
   }))
 
   const startDailyConsultation = async () => {
@@ -3533,16 +3575,23 @@ function Dashboard({ navigate }) {
     }
   }
 
-  const chartData = [
-    { name: "Protein", value: totals.protein_g, color: "#8B5CF6" },
+  const donutMetrics = macros
 
-    { name: "Lemak", value: totals.fat_g, color: "#F59E0B" },
+    .filter(
+      (item) =>
+        donutSelection.includes(item.name) && Number(item.current) > 0,
+    )
 
-    { name: "Karbohidrat", value: totals.carbs_g, color: "#10B981" },
-  ].filter(({ value }) => value > 0)
+    .map((item) => ({
+      name: item.name,
 
-  const donutData = chartData.length
-    ? chartData
+      value: Number(item.current),
+
+      color: item.hex,
+    }))
+
+  const donutData = donutMetrics.length
+    ? donutMetrics
     : [{ name: "Belum ada data", value: 1, color: "#e2e8f0" }]
 
   const historySessions = Object.values(
@@ -3632,9 +3681,80 @@ function Dashboard({ navigate }) {
                   Ringkasan catatan makanan hari ini
                 </p>
               </div>
-              <button className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-50">
-                <MoreHorizontal className="size-5" />
-              </button>
+              <div className="relative shrink-0">
+                <button
+                  aria-expanded={donutMenuOpen}
+                  aria-haspopup="true"
+                  aria-label="Filter grafik asupan gizi"
+                  className={cn(
+                    "grid size-9 place-items-center rounded-xl bg-sky-500 text-white shadow-[0_10px_25px_-10px_rgba(14,165,233,.8)] transition-colors duration-200 hover:bg-sky-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100",
+                    donutMenuOpen && "bg-sky-600",
+                  )}
+                  onClick={() => {
+                    setDonutDraft(donutSelection)
+                    setDonutMenuOpen((open) => !open)
+                  }}
+                  type="button"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+                {donutMenuOpen && (
+                  <>
+                    <button
+                      aria-hidden="true"
+                      className="fixed inset-0 z-20 cursor-default"
+                      onClick={() => setDonutMenuOpen(false)}
+                      tabIndex={-1}
+                      type="button"
+                    />
+                    <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.22)]">
+                      <p className="text-xs font-bold text-slate-700">
+                        Filter nutrisi
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        Pilih data yang ingin ditampilkan
+                      </p>
+                      <div className="mt-3 space-y-1">
+                        {macros.map((item) => (
+                          <label
+                            className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-sky-50"
+                            key={item.name}
+                          >
+                            <input
+                              checked={donutDraft.includes(item.name)}
+                              className="size-4 shrink-0 accent-sky-500"
+                              onChange={() =>
+                                setDonutDraft((prev) =>
+                                  prev.includes(item.name)
+                                    ? prev.filter(
+                                        (name) => name !== item.name,
+                                      )
+                                    : [...prev, item.name],
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span
+                              className="size-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: item.hex }}
+                            />
+                            {item.name}
+                          </label>
+                        ))}
+                      </div>
+                      <Button
+                        className="mt-3 w-full"
+                        onClick={() => {
+                          setDonutSelection(donutDraft)
+                          setDonutMenuOpen(false)
+                        }}
+                      >
+                        Terapkan
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             <div className="mt-5 grid items-center gap-7 md:grid-cols-[260px_1fr]">
               <div className="relative mx-auto h-60 w-full max-w-60">
@@ -3767,8 +3887,8 @@ function Dashboard({ navigate }) {
         {loadError && <NoticeAlert className="mt-4" message={loadError} />}
         <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1.05fr_.95fr]">
           <section className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-3">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-slate-900">
                   Riwayat Tampilan
                 </h2>
@@ -3776,12 +3896,13 @@ function Dashboard({ navigate }) {
                   Dua sesi pemindaian terbaru
                 </p>
               </div>
-              <button
-                className="text-xs font-semibold text-sky-600"
+              <Button
+                className="group shrink-0"
                 onClick={() => navigate("/meals")}
               >
                 Lihat semua
-              </button>
+                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Button>
             </div>
             <div className="mt-5 divide-y divide-slate-100">
               {recentSessions.map((session) => (
@@ -4586,6 +4707,16 @@ function Chat({ navigate, routeConversationId }) {
 
   const [sidebarHovered, setSidebarHovered] = useState(false)
 
+  const [chatSearch, setChatSearch] = useState("")
+
+  const filteredConversations = conversations.filter((item) =>
+    String(item.preview || "")
+
+      .toLowerCase()
+
+      .includes(chatSearch.trim().toLowerCase()),
+  )
+
   const [deletingId, setDeletingId] = useState("")
 
   const [conversationToDelete, setConversationToDelete] = useState(null)
@@ -4946,11 +5077,33 @@ function Chat({ navigate, routeConversationId }) {
                   <p className="mb-2 mt-7 px-3 text-xs font-semibold text-slate-400">
                     Riwayat percakapan
                   </p>
+                  <div className="relative mb-2">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      aria-label="Cari nama percakapan"
+                      autoComplete="off"
+                      className="min-h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-8 text-[11px] text-slate-700 placeholder:text-[10px] placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      onChange={(event) => setChatSearch(event.target.value)}
+                      placeholder="Cari nama percakapan"
+                      type="text"
+                      value={chatSearch}
+                    />
+                    {chatSearch && (
+                      <button
+                        aria-label="Hapus pencarian"
+                        className="absolute right-2 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        onClick={() => setChatSearch("")}
+                        type="button"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    )}
+                  </div>
                   <div
                     className="min-h-0 flex-1 space-y-1 overflow-y-auto"
                     data-lenis-prevent
                   >
-                    {conversations.map((item) => (
+                    {filteredConversations.map((item) => (
                       <div
                         className={cn(
                           "group/history relative rounded-xl transition-colors",
@@ -5018,6 +5171,12 @@ function Chat({ navigate, routeConversationId }) {
                         Mulai percakapan pertamamu.
                       </p>
                     )}
+                    {Boolean(conversations.length) &&
+                      !filteredConversations.length && (
+                        <p className="px-3 text-xs leading-5 text-slate-500">
+                          Tidak ada percakapan yang cocok.
+                        </p>
+                      )}
                   </div>
                 </motion.div>
               )}
@@ -5191,7 +5350,6 @@ function Chat({ navigate, routeConversationId }) {
 
             <div className="relative z-10 shrink-0 bg-gradient-to-t from-white via-white/95 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5 sm:px-5 sm:pb-5">
               <AnimatedAIChat
-                hasMessages={messages.length > 0}
                 image={image}
                 imageInputRef={imageInput}
                 message={message}
